@@ -297,28 +297,15 @@ export function useStore(initial: Initial) {
         IMPORT_MAP,
       ].includes(filename)
     ) {
-      ElMessage.warning(
-        'You cannot remove it, because Element Plus requires it.',
-      )
+      alert('You cannot remove it, because Destyler requires it.')
       return
     }
 
-    if (
-      await ElMessageBox.confirm(
-        `Are you sure you want to delete ${filename.replace(/^src\//, '')}?`,
-        {
-          title: 'Delete File',
-          type: 'warning',
-          center: true,
-        },
-      )
-    ) {
-      if (state.activeFile.filename === filename)
-        setActive(APP_FILE)
+    if (state.activeFile.filename === filename)
+      setActive(APP_FILE)
 
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.files[filename]
-    }
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete state.files[filename]
   }
 
   function getImportMap() {

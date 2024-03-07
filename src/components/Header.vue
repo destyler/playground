@@ -74,7 +74,7 @@ function toggleNightly() {
 
 async function copyLink() {
   await navigator.clipboard.writeText(location.href)
-  ElMessage.success('Sharable URL has been copied to clipboard.')
+  alert('Sharable URL has been copied to clipboard.')
 }
 
 function refreshView() {
