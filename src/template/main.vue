@@ -1,8 +1,8 @@
 <script setup>
 import App from './App.vue'
-import { setupDestyler } from './destyler.js'
+import { setupUI } from './destyler.js'
 
-setupDestyler()
+setupUI()
 </script>
 
 <template>

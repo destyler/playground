@@ -1,22 +1,22 @@
-<script setup lang="ts">
-import { ref, version as vueVersion } from 'vue'
-import { DestylerButton } from '@destyler/button'
+<script setup>
+import { ref } from 'vue'
+import { Button } from '@destyler/button'
+import { InfoRoot, InfoClose } from '@destyler/info'
+import { Icon } from '@destyler/icon'
 
 const msg = ref('Hello World!')
 
-function handleClick() {
-  alert(msg.value)
-}
+const status = ref(true)
 </script>
 
 <template>
-  <h1>{{ msg }}</h1>
-
-  <DestylerButton @click="handleClick">
-    hello
-  </DestylerButton>
-
-  <p>
-    Vue {{ vueVersion }}
-  </p>
+  <Button class="button" @click="status = true">Open Info</Button>
+  <br/>
+  <br/>
+  <InfoRoot v-model:open="status">
+    <h1>{{ msg }}</h1>
+    <InfoClose @click="status = false" >
+      <Icon name="radix-icons:cross-1" />
+    </InfoClose>
+  </InfoRoot>
 </template>

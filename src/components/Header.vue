@@ -1,31 +1,15 @@
 <script setup lang="ts">
+import type { Store, VersionKey } from '@/composables/store'
 import type { Ref } from 'vue'
 import {
-  DestylerButton,
-  DestylerIcon,
-  DestylerInfoRoot,
-  DestylerSelectContent,
-  DestylerSelectGroup,
-  DestylerSelectIcon,
-  DestylerSelectItem,
-  DestylerSelectItemIndicator,
-  DestylerSelectItemText,
-  DestylerSelectRoot,
-  DestylerSelectScrollDownButton,
-  DestylerSelectScrollUpButton,
-  DestylerSelectTrigger,
-  DestylerSelectValue,
-  DestylerSelectViewport,
-} from 'destyler'
-import {
-  getSupportedEpVersions,
   getSupportedTSVersions,
+  getSupportedUIVersions,
   getSupportedVueVersions,
 } from '@/utils/dependency'
-import type { ReplStore, VersionKey } from '@/composables/store'
+import { languageToolsVersion } from '@vue/repl'
 
 const { store } = defineProps<{
-  store: ReplStore
+  store: Store
 }>()
 const emit = defineEmits<{
   (e: 'refresh'): void
@@ -33,7 +17,6 @@ const emit = defineEmits<{
 const appVersion = import.meta.env.APP_VERSION
 const replVersion = import.meta.env.REPL_VERSION
 
-const nightly = ref(false)
 const dark = useDark()
 const toggleDark = useToggle(dark)
 
@@ -46,7 +29,7 @@ interface Version {
 const versions = reactive<Record<VersionKey, Version>>({
   destyler: {
     text: 'Destyler',
-    published: getSupportedEpVersions(nightly),
+    published: getSupportedUIVersions(),
     active: store.versions.destyler,
   },
   vue: {
@@ -61,20 +44,14 @@ const versions = reactive<Record<VersionKey, Version>>({
   },
 })
 
-async function setVersion(key: VersionKey, v: string) {
-  versions[key].active = `loading...`
-  await store.setVersion(key, v)
-  versions[key].active = v
-}
-
-function toggleNightly() {
-  store.toggleNightly(nightly.value)
-  setVersion('destyler', 'latest')
-}
+const copyStatus = ref<boolean>(false)
 
 async function copyLink() {
   await navigator.clipboard.writeText(location.href)
-  alert('Sharable URL has been copied to clipboard.')
+  copyStatus.value = true
+  setTimeout(() => {
+    copyStatus.value = false
+  }, 2000)
 }
 
 function refreshView() {
@@ -85,98 +62,171 @@ function refreshView() {
 <template>
   <nav>
     <div leading="[var(--nav-height)]" m-0 flex items-center font-medium>
-      <Logo />
-      <div flex="~ gap-1" m="l-2" items-center lt-sm-hidden>
+      <!-- logo -->
+      <Logo class="relative mr-2 h-24px v-mid top-[-2px]" />
+      <div flex="~ gap-1" items-center lt-sm-hidden>
+        <!-- title -->
         <div text-xl>
           Destyler Playground
         </div>
-        <div class="flex items-end gap-1">
-          <DestylerInfoRoot
-            class="text-sm px-2.5 py-1.5 inline-flex items-center font-medium rounded-md text-xs bg-#18181B dark:bg-#FAFAFA text-#FAFAFA dark:text-#18181B focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            v{{ appVersion }}, repl v{{ replVersion }}
-          </DestylerInfoRoot>
-          <DestylerInfoRoot
-            v-if="store.pr"
-            class="text-sm inline-flex items-center font-medium rounded-md text-xs px-2 py-1 bg-#18181B dark:bg-#FAFAFA text-#FAFAFA dark:text-#18181B focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            PR {{ store.pr }}
-          </DestylerInfoRoot>
-        </div>
+        <!-- tag -->
+        <InfoRoot
+          as="span"
+          class="
+          px-7px w-auto h-20px rounded-md
+          flex justify-center items-center
+          border-transparent shadow cursor-default
+          bg-#18181B dark:bg-#FAFAFA
+          text-#FAFAFA dark:text-#18181B
+          hover:bg-#18181B/80 dark:hover:bg-#FAFAFA/80
+          "
+        >
+          v{{ appVersion }}, repl v{{ replVersion }}, volar v{{
+            languageToolsVersion
+          }}
+        </InfoRoot>
       </div>
     </div>
 
-    <div flex="~ gap-2" items-center>
+    <div class="flex gap-2 items-center z-99">
+      <!-- version select group -->
       <div
         v-for="(v, key) of versions"
         :key="key"
-        flex="~ gap-2"
-        items-center
-        lt-lg-hidden
+        class="
+        flex gap-2 items-center lt-lg-hidden
+        "
       >
         <span>{{ v.text }}:</span>
-        <DestylerSelectRoot v-model="v.active" :default-open="false">
-          <DestylerSelectTrigger
-            class="flex h-9 w-[180px] items-center justify-between whitespace-nowrap rounded-md border border-#E4E4E7 dark:border-#27272A bg-transparent px-3 py-2 text-sm shadow-sm ring-white dark:ring-#09090B placeholder:text-#A1A1AA focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+        <SelectRoot v-model="v.active">
+          <SelectTrigger
+            class="
+            h-6 w-140px whitespace-nowrap
+            flex items-center justify-between
+            bg-transparent pl-2 pr-1 py-2 text-sm
+            rounded-md border shadow-sm
+            border-#18181B/10 dark:border-#FAFAFA/10
+            text-#18181B dark:text-#FAFAFA
+            placeholder:text-#18181B dark:placeholder:text-#18181B
+            "
           >
-            <DestylerSelectValue placeholder="Select a fruit">
-              {{ v.active }}
-            </DestylerSelectValue>
-            <DestylerSelectIcon :as-child="true">
-              <DestylerIcon name="radix-icons:caret-sort" class="w-4 h-4 op-50" />
-            </DestylerSelectIcon>
-          </DestylerSelectTrigger>
-          <DestylerSelectContent :side-offset="4" :autocapitalize="true" position="popper" class="relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border border-#E4E4E7 dark:border-#27272A bg-white dark:bg-#09090B text-#18181B dark:text-#FAFAFA shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ">
-            <DestylerSelectScrollUpButton class="flex cursor-default items-center justify-center py-1">
-              <DestylerIcon name="radix-icons:chevron-up" />
-            </DestylerSelectScrollUpButton>
-            <DestylerSelectViewport
-              class="p-1 w-full"
-              style="height: var(--destyler_select_trigger_height); min-width: var(--destyler_select_trigger_width);"
+            <SelectValue placeholder="lastet" />
+            <Icon name="carbon:chevron-sort" class="h-4 w-4 opacity-50" />
+          </SelectTrigger>
+          <SelectPortal>
+            <SelectContent
+              class="
+              relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md
+              border border-#18181B/10 dark:border-#FAFAFA/10 shadow-md
+              bg-#FAFAFA text-#18181B dark:bg-#18181B dark:text-#FAFAFA
+              data-[state=open]:animate-in data-[state=closed]:animate-out
+              data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0
+              data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95
+              data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2
+              data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2
+              data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1
+              data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1
+              "
+              :side-offset="5"
+              position="popper"
             >
-              <DestylerSelectGroup>
-                <DestylerSelectItem
-                  v-for="option in v.published"
-                  :key="option"
-                  :value="option"
-                  class="relative cursor-pointer flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-#F4F4F5 focus:text-#18181B dark:focus:bg-#27272A dark:focus:text-#FAFAFA data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+              <SelectScrollUpButton class="flex cursor-default items-center justify-center py-1">
+                <Icon name="carbon:chevron-up" class="h-4 w-4" />
+              </SelectScrollUpButton>
+              <SelectViewport
+                class="
+                p-1 h-[var(--destyler-select-trigger-height)]
+                w-full min-w-[var(--destyler-select-trigger-width)]
+                "
+              >
+                <SelectItem
+                  value="latest"
+                  class="
+                  relative flex w-full cursor-default select-none
+                  items-center rounded-sm py-1.5 pl-2 pr-8 text-sm
+                  outline-none data-[disabled]:pointer-events-none
+                  data-[disabled]:opacity-50 cursor-pointer
+                dark:focus:bg-#27272A dark:focus:text-#FAFAFA
+                focus:bg-#F4F4F5 focus:text-#18181B
+                  "
                 >
+                  <SelectItemText>
+                    latest
+                  </SelectItemText>
                   <span class="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
-                    <DestylerSelectItemIndicator>
-                      <DestylerIcon name="radix-icons:check" class="w-4 h-4" />
-                    </DestylerSelectItemIndicator>
+                    <SelectItemIndicator>
+                      <Icon name="carbon:checkmark" class="h-4 w-4" />
+                    </SelectItemIndicator>
                   </span>
-                  <DestylerSelectItemText>
-                    {{ option }}
-                  </DestylerSelectItemText>
-                </DestylerSelectItem>
-              </DestylerSelectGroup>
-            </DestylerSelectViewport>
-            <DestylerSelectScrollDownButton class="flex cursor-default items-center justify-center py-1">
-              <DestylerIcon name="radix-icons:chevron-down" />
-            </DestylerSelectScrollDownButton>
-          </DestylerSelectContent>
-        </DestylerSelectRoot>
+                </SelectItem>
+                <SelectItem
+                  v-for="ver of v.published"
+                  :key="ver"
+                  :value="ver"
+                  class="
+                  relative flex w-full cursor-default select-none
+                  items-center rounded-sm py-1.5 pl-2 pr-8 text-sm
+                  outline-none data-[disabled]:pointer-events-none
+                  data-[disabled]:opacity-50 cursor-pointer
+                dark:focus:bg-#27272A dark:focus:text-#FAFAFA
+                focus:bg-#F4F4F5 focus:text-#18181B
+                  "
+                >
+                  <SelectItemText>
+                    {{ ver }}
+                  </SelectItemText>
+                  <span class="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+                    <SelectItemIndicator>
+                      <Icon name="carbon:checkmark" class="h-4 w-4" />
+                    </SelectItemIndicator>
+                  </span>
+                </SelectItem>
+              </SelectViewport>
+              <SelectScrollDownButton class="flex cursor-default items-center justify-center py-1">
+                <Icon name="carbon:chevron-down" class="h-4 w-4" />
+              </SelectScrollDownButton>
+            </SelectContent>
+          </SelectPortal>
+        </SelectRoot>
       </div>
-
-      <div flex="~ gap-4" text-lg>
-        <DestylerButton i-ri-refresh-line hover:color-primary @click="refreshView" />
-        <DestylerButton i-ri-share-line hover:color-primary @click="copyLink" />
-        <DestylerButton
-          i-ri-sun-line
-          dark:i-ri-moon-line
-          hover:color-primary
-          @click="toggleDark()"
-        />
-        <DestylerButton
-          as="a"
-          href="https://github.com/destyler/destyler"
-          target="_blank"
-          flex
-          hover:color-primary
-        >
-          <DestylerButton title="View on GitHub" i-ri-github-fill />
-        </DestylerButton>
+      <!-- icon group -->
+      <div class="flex gap-4 text-lg">
+        <Button @click="refreshView">
+          <Icon
+            class="
+          dark:text-#FAFAFA/80 text-#18181B/80
+          hover:text-#18181B dark:hover:text-#FAFAFA
+            "
+            name="radix-icons:update"
+          />
+        </Button>
+        <Button @click="copyLink">
+          <Icon
+            class="
+          dark:text-#FAFAFA/80 text-#18181B/80
+          hover:text-#18181B dark:hover:text-#FAFAFA
+            "
+            :name="copyStatus ? 'radix-icons:check' : 'radix-icons:share-1'"
+          />
+        </Button>
+        <Button @click="toggleDark()">
+          <Icon
+            class="
+            dark:text-#FAFAFA/80 text-#18181B/80
+            hover:text-#18181B dark:hover:text-#FAFAFA
+            "
+            :name="dark ? 'radix-icons:moon' : 'radix-icons:sun'"
+          />
+        </Button>
+        <Link to="https://github.com/destyler/destyler" target="_blank">
+          <Icon
+            class="
+            dark:text-#FAFAFA/80 text-#18181B/80
+            hover:text-#18181B dark:hover:text-#FAFAFA
+              "
+            name="radix-icons:github-logo"
+          />
+        </Link>
       </div>
     </div>
   </nav>
@@ -188,12 +238,15 @@ nav {
   --bg-light: #fff;
   --border: #ddd;
 
-  --at-apply: 'box-border flex justify-between px-4 z-999 relative';
+  --at-apply: 'box-border flex justify-between px-4 z-40 relative text-dark dark:text-light';
 
   height: var(--nav-height);
   background-color: var(--bg);
-  color: #000;
-  border-bottom: 1px solid var(--border);
+  box-shadow: 0 0 6px #18181B;
+
+  .el-select {
+    width: 140px;
+  }
 }
 
 .dark nav {
@@ -202,7 +255,7 @@ nav {
   --border: #383838;
 
   --at-apply: 'shadow-none';
-  color: #FFF;
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 0 6px #FAFAFA;
 }
 </style>

@@ -1,49 +1,71 @@
+<!-- eslint-disable no-useless-escape -->
 <script setup lang="ts">
-import { Repl, type SFCOptions } from '@vue/repl'
+import { Repl } from '@vue/repl'
 import Monaco from '@vue/repl/monaco-editor'
-import type { UserOptions } from '@/composables/store'
+import { useStore } from './composables/store'
 
 const loading = ref(true)
 const replRef = ref<InstanceType<typeof Repl>>()
 
-// enable experimental features
-const sfcOptions: SFCOptions = {
-  script: {
-    reactivityTransform: true,
-    defineModel: true,
-  },
+const AUTO_SAVE_KEY = 'auto-save-state'
+function getAutoSaveState() {
+  return JSON.parse(localStorage.getItem(AUTO_SAVE_KEY) || 'true')
+}
+function setAutoSaveState(value: boolean) {
+  localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(value))
 }
 
-const initialUserOptions: UserOptions = {}
+const autoSave = ref(getAutoSaveState())
 
-const pr = new URLSearchParams(location.search).get('pr')
+const previewOptions = {
+  headHTML: `
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"><\/script>
+    <script>
+      window.__unocss = {
+        rules: [],
+        presets: [],
+      }
+    <\/script>
+  `,
+}
+
+const dark = useDark()
+
+const theme = new URLSearchParams(location.search).get('theme')
+if (theme === 'dark') {
+  dark.value = true
+}
 
 const store = useStore({
   serializedState: location.hash.slice(1),
-  userOptions: initialUserOptions,
-  pr,
+  initialized: () => {
+    loading.value = false
+  },
 })
-
-store.init().then(() => (loading.value = false))
-if (!store.pr && store.userOptions.styleSource)
-  store.pr = store.userOptions.styleSource.split('-', 2)[1]
 
 // eslint-disable-next-line no-console
 console.log('Store:', store)
 
 function handleKeydown(evt: KeyboardEvent) {
-  if ((evt.ctrlKey || evt.metaKey) && evt.code === 'KeyS')
+  if ((evt.ctrlKey || evt.metaKey) && evt.code === 'KeyS') {
     evt.preventDefault()
+  }
 }
 
-const dark = useDark()
-
 // persist state
-watchEffect(() => history.replaceState({}, '', `#${store.serialize()}`))
+watchEffect(() =>
+  history.replaceState(
+    {},
+    '',
+    `${location.origin}${location.pathname}#${store.serialize()}`,
+  ),
+)
 
 function refreshPreview() {
   replRef.value?.reload()
 }
+
+watch(autoSave, setAutoSaveState)
 </script>
 
 <template>
@@ -51,16 +73,19 @@ function refreshPreview() {
     <Header :store="store" @refresh="refreshPreview" />
     <Repl
       ref="replRef"
+      v-model="autoSave"
       :theme="dark ? 'dark' : 'light'"
+      :preview-theme="true"
       :store="store"
       :editor="Monaco"
-      show-compile-output
-      auto-resize
-      :sfc-options="sfcOptions"
+      :preview-options="previewOptions"
       :clear-console="false"
       @keydown="handleKeydown"
     />
   </div>
+  <template v-else>
+    <div v-loading="{ text: 'Loading...' }" h-100vh />
+  </template>
 </template>
 
 <style>
@@ -76,11 +101,12 @@ body {
   height: calc(100vh - var(--nav-height)) !important;
 }
 
-.dark .vue-repl{
-  --color-branding: #FAFAFA !important;
-}
 .vue-repl {
   --color-branding: #18181B !important;
+}
+
+.dark .vue-repl {
+  --color-branding: #FAFAFA !important;
 }
 
 .dark body {
