@@ -1,0 +1,23 @@
+@import '@unocss/reset/tailwind.css';
+
+:root {
+  color: #0f172a;
+  background: radial-gradient(circle at 20% 20%, #e9edf5 0, #f6f8fb 30%, #fdfefe 55%);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  min-height: 100vh;
+  color: inherit;
+  background: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}

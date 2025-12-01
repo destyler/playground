@@ -1,0 +1,110 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+const frameworks = [
+  {
+    key: 'vue',
+    title: 'Vue',
+    status: 'ready',
+    description: 'Port the existing Vue REPL as an Astro island with UnoCSS baked in.',
+  },
+  {
+    key: 'react',
+    title: 'React',
+    status: 'planned',
+    description: 'Sandpack or WebContainer powered playground for React + JSX.',
+  },
+  {
+    key: 'svelte',
+    title: 'Svelte',
+    status: 'planned',
+    description: 'Lightweight Svelte playground with the same shareable state model.',
+  },
+  {
+    key: 'solid',
+    title: 'Solid',
+    status: 'planned',
+    description: 'SolidJS island ready for the same component demos.',
+  },
+  {
+    key: 'vanilla',
+    title: 'Vanilla',
+    status: 'planned',
+    description: 'Plain HTML/TS playground to showcase framework-free usage.',
+  },
+]
+---
+
+<BaseLayout title="Destyler Playground">
+  <section class="max-w-6xl mx-auto px-6 pb-10 pt-14 flex flex-col gap-8">
+    <div class="flex flex-col gap-4">
+      <span class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Rebooted</span>
+      <h1 class="text-4xl sm:text-5xl font-semibold leading-tight text-slate-900">
+        Destyler multi-framework playground, now on Astro.
+      </h1>
+      <p class="text-lg text-slate-700 max-w-2xl">
+        The previous Vue-only REPL has been cleared out. This is a fresh Astro shell
+        so we can wire Vue, React, Svelte, Solid, and vanilla demos side-by-side.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <a
+          class="px-4 py-2 rounded-full bg-slate-900 text-white font-medium shadow-md hover:shadow-lg transition-shadow"
+          href="https://docs.astro.build"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Astro docs
+        </a>
+        <a
+          class="px-4 py-2 rounded-full border border-slate-900/15 text-slate-900 font-medium bg-white hover:border-slate-900/40 transition-colors"
+          href="https://github.com/destyler/destyler"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Destyler repo
+        </a>
+      </div>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {frameworks.map((fw) => (
+        <article
+          class="rounded-2xl border border-slate-900/10 bg-white shadow-[0_10px_40px_-24px_rgba(15,23,42,0.35)] p-5 flex flex-col gap-3"
+        >
+          <header class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="h-10 w-10 rounded-xl bg-slate-900 text-white grid place-items-center font-semibold">
+                {fw.title.slice(0, 1)}
+              </div>
+              <h2 class="text-xl font-semibold text-slate-900">{fw.title}</h2>
+            </div>
+            <span
+              class={`px-3 py-1 rounded-full text-xs font-semibold ${
+                fw.status === 'ready'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              {fw.status === 'ready' ? 'Ready to wire' : 'Planned'}
+            </span>
+          </header>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            {fw.description}
+          </p>
+          <div class="mt-auto pt-2 text-xs text-slate-500">
+            Next up: connect REPL, share state, and unify styling.
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <div class="rounded-2xl border border-slate-900/10 bg-slate-900 text-white p-6 flex flex-col gap-3">
+      <h3 class="text-xl font-semibold">What changed?</h3>
+      <ul class="list-disc pl-4 space-y-2 text-sm text-slate-100/90">
+        <li>Cleared the old Vite + Vue REPL code to start from a clean slate.</li>
+        <li>Added Astro with Vue, React, Svelte, and Solid integrations plus UnoCSS.</li>
+        <li>Set up fresh scripts, TypeScript config, and base layout for new islands.</li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
