@@ -1,13 +1,6 @@
 {
-  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-    "types": [],
-    "skipLibCheck": true
-  },
-  "include": ["src"],
-  "exclude": ["src/template"]
+    "baseUrl": "."
+  }
 }

@@ -1,13 +1,26 @@
-# Destyler Playground
+# Destyler Playground (Astro reboot)
 
-You can go to [play-destyler-dev.zeabur.app](https://play-destyler-dev.zeabur.app/) to have a try! 😆
+Fresh start for a multi-framework Destyler playground powered by Astro. The old Vite + Vue REPL has been cleared out so we can rebuild with Vue, React, Svelte, Solid, and vanilla demos side-by-side.
 
-## Credits
+## Quick start
 
-- [vuejs/repl](https://github.com/vuejs/repl)
+```bash
+pnpm install
+pnpm dev
+```
 
-- [element-plus/element-plus-playground](https://github.com/element-plus/element-plus-playground)
+## What’s included
+
+- Astro 5 with Vue, React, Svelte, and Solid integrations wired up
+- UnoCSS (same presets as before) and a minimal base layout
+- Clean TypeScript + ESLint + Prettier setup
+
+## Next steps
+
+- Port the previous Vue REPL as the first Astro island
+- Add Sandpack/WebContainer-based playgrounds for other frameworks
+- Shareable state (hash/URL) and unified styling across demos
 
 ## License
 
-[MIT](./LICENSE) License © 2024-PRESENT [Elone Hoo](https://github.com/elonehoo)
+[MIT](./LICENSE)
