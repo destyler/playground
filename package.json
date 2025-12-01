@@ -16,6 +16,10 @@
     "format:fix": "prettier --write ."
   },
   "dependencies": {
+    "@destyler/dialog": "0.2.0",
+    "@destyler/react": "0.2.0",
+    "@destyler/solid": "0.2.0",
+    "@destyler/svelte": "0.2.0",
     "@unocss/reset": "^0.62.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

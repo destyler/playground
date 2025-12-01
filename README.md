@@ -14,12 +14,14 @@ pnpm dev
 - Astro 5 with Vue, React, Svelte, and Solid integrations wired up
 - UnoCSS (same presets as before) and a minimal base layout
 - Clean TypeScript + ESLint + Prettier setup
+- Vue import-map playground that pulls Destyler 0.2.x straight from jsDelivr
+- React, Svelte, and Solid dialog demos bundled from npm (no CDN import map)
 
 ## Next steps
 
-- Port the previous Vue REPL as the first Astro island
 - Add Sandpack/WebContainer-based playgrounds for other frameworks
 - Shareable state (hash/URL) and unified styling across demos
+- Document how to pin additional CDN dependencies per framework
 
 ## License
 
