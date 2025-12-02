@@ -1,23 +1,18 @@
 ---
-import 'uno.css'
 import '../styles/global.css'
-
-const {
-  title = 'Destyler Playground',
-  description = 'Multi-framework playground powered by Astro.',
-} = Astro.props
+const { title = 'Astro Multi-Framework REPL', description = 'CDN import-map playground for Vue and React.' } = Astro.props
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <meta name="description" content={description} />
   </head>
-  <body class="min-h-screen text-slate-900 bg-transparent">
-    <main class="min-h-screen flex flex-col">
+  <body>
+    <main>
       <slot />
     </main>
   </body>

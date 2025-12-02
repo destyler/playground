@@ -1,157 +1,104 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro'
-import ReactPlayground from '../components/react/ReactPlayground.tsx'
-import SolidPlayground from '../components/solid/SolidPlayground.tsx'
-import SveltePlayground from '../components/svelte/SveltePlayground.svelte'
-import VuePlayground from '../components/vue/VuePlayground.vue'
-
-const frameworks = [
-  {
-    key: 'vue',
-    title: 'Vue',
-    status: 'live',
-    description: 'Import-map powered REPL with Destyler 0.2.0 wired from jsDelivr.',
-  },
-  {
-    key: 'react',
-    title: 'React',
-    status: 'live',
-    description: 'Bundled dialog demo using @destyler/react + @destyler/dialog (no CDN import map).',
-  },
-  {
-    key: 'svelte',
-    title: 'Svelte',
-    status: 'live',
-    description: 'Bundled dialog demo using @destyler/svelte + @destyler/dialog.',
-  },
-  {
-    key: 'solid',
-    title: 'Solid',
-    status: 'live',
-    description: 'Bundled dialog demo using @destyler/solid + @destyler/dialog.',
-  },
-  {
-    key: 'vanilla',
-    title: 'Vanilla',
-    status: 'planned',
-    description: 'Plain HTML/TS playground to showcase framework-free usage.',
-  },
-]
+import MultiCdnRepl from '../components/repl/MultiCdnRepl.tsx'
 ---
 
-<BaseLayout title="Destyler Playground">
-  <section class="max-w-6xl mx-auto px-6 pb-14 pt-14 flex flex-col gap-10">
-    <div class="flex flex-col gap-4">
-      <span class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Rebooted</span>
-      <h1 class="text-4xl sm:text-5xl font-semibold leading-tight text-slate-900">
-        Destyler multi-framework playground, now on Astro.
-      </h1>
-      <p class="text-lg text-slate-700 max-w-3xl">
-        Vue is live with an import-map powered REPL. React, Svelte, and Solid now ship bundled demos so every
-        framework can exercise the same Destyler dialog API without CDN fetches.
-      </p>
-      <div class="flex flex-wrap gap-3">
-        <a
-          class="px-4 py-2 rounded-full bg-slate-900 text-white font-medium shadow-md hover:shadow-lg transition-shadow"
-          href="https://docs.astro.build"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Astro docs
-        </a>
-        <a
-          class="px-4 py-2 rounded-full border border-slate-900/15 text-slate-900 font-medium bg-white hover:border-slate-900/40 transition-colors"
-          href="https://github.com/destyler/destyler"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Destyler repo
-        </a>
-      </div>
-    </div>
-
-    <div id="vue-playground" class="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)] items-start">
-      <div class="rounded-3xl overflow-hidden border border-slate-900/10 shadow-[0_14px_50px_-28px_rgba(15,23,42,0.45)] bg-white">
-        <VuePlayground client:only="vue" />
-      </div>
-      <div class="rounded-3xl border border-slate-900/10 bg-white/70 backdrop-blur p-6 flex flex-col gap-4 shadow-[0_12px_36px_-26px_rgba(15,23,42,0.45)]">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Vue island</p>
-        <h2 class="text-2xl font-semibold text-slate-900">How this sandbox works</h2>
-        <ul class="space-y-2 text-sm text-slate-700 leading-relaxed">
-          <li>Import map pins Vue 3.5.25, Destyler 0.2.0 packages, and proxy-compare 3.0.1 from jsDelivr.</li>
-          <li>Default file shows the dialog machine wired with <code>@destyler/vue</code> connectors.</li>
-          <li>Edit <code>import-map.json</code> inside the REPL to surface more CDN deps for experiments.</li>
-          <li>Everything runs in the browser—no extra npm installs inside the preview frame.</li>
-        </ul>
-        <div class="text-xs text-slate-500">
-          Source: <code>src/components/vue/VuePlayground.vue</code>. Swap in new demos here and reuse the pattern for
-          other frameworks.
+<BaseLayout>
+  <section class="desktop">
+    <div class="window">
+      <header class="window__bar">
+        <div class="lights" aria-hidden="true">
+          <span class="light light--red"></span>
+          <span class="light light--amber"></span>
+          <span class="light light--green"></span>
         </div>
-      </div>
-    </div>
-
-    <div class="flex flex-col gap-3">
-      <div class="flex items-center justify-between">
-        <div class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Bundled demos</div>
-        <p class="text-xs text-slate-500">Built with npm deps — no CDN imports.</p>
-      </div>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div class="rounded-3xl overflow-hidden border border-slate-900/10 shadow-[0_14px_50px_-28px_rgba(15,23,42,0.45)] bg-white">
-          <ReactPlayground client:only="react" />
+        <div class="bar__title">
+          <p class="eyebrow">Astro</p>
+          <p class="title">CDN Multi-Framework REPL</p>
         </div>
-        <div class="rounded-3xl overflow-hidden border border-slate-900/10 shadow-[0_14px_50px_-28px_rgba(15,23,42,0.45)] bg-white">
-          <SveltePlayground client:only="svelte" />
-        </div>
-        <div class="rounded-3xl overflow-hidden border border-slate-900/10 shadow-[0_14px_50px_-28px_rgba(15,23,42,0.45)] bg-white">
-          <SolidPlayground client:only="solid" />
-        </div>
+      </header>
+
+      <div class="window__body">
+        <MultiCdnRepl client:only="react" />
       </div>
-    </div>
-
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {frameworks.map((fw) => (
-        <article
-          class="rounded-2xl border border-slate-900/10 bg-white shadow-[0_10px_40px_-24px_rgba(15,23,42,0.35)] p-5 flex flex-col gap-3"
-        >
-          <header class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <div class="h-10 w-10 rounded-xl bg-slate-900 text-white grid place-items-center font-semibold">
-                {fw.title.slice(0, 1)}
-              </div>
-              <h2 class="text-xl font-semibold text-slate-900">{fw.title}</h2>
-            </div>
-            <span
-              class={`px-3 py-1 rounded-full text-xs font-semibold ${
-                fw.status === 'live'
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : fw.status === 'next'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-amber-100 text-amber-700'
-              }`}
-            >
-              {fw.status === 'live' ? 'Live' : fw.status === 'next' ? 'Up next' : 'Planned'}
-            </span>
-          </header>
-          <p class="text-sm text-slate-600 leading-relaxed">
-            {fw.description}
-          </p>
-          <div class="mt-auto pt-2 text-xs text-slate-500">
-            {fw.status === 'live'
-              ? 'Shipping now: Vue REPL + bundled dialog demos.'
-              : 'Next up: connect REPL, share state, and unify styling.'}
-          </div>
-        </article>
-      ))}
-    </div>
-
-    <div class="rounded-2xl border border-slate-900/10 bg-slate-900 text-white p-6 flex flex-col gap-3">
-      <h3 class="text-xl font-semibold">What changed?</h3>
-      <ul class="list-disc pl-4 space-y-2 text-sm text-slate-100/90">
-        <li>React, Svelte, and Solid dialog demos now bundle npm deps instead of hitting a CDN.</li>
-        <li>Vue import-map REPL is live as an Astro island with CDN-only deps.</li>
-        <li>Cleared the old Vite + Vue REPL code to start from a clean slate.</li>
-        <li>Astro hosts Vue, React, Svelte, and Solid integrations plus UnoCSS.</li>
-      </ul>
     </div>
   </section>
+
+  <style>
+    .desktop {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 40px 20px;
+    }
+
+    .window {
+      width: min(1180px, 100%);
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 28px;
+      box-shadow: 0 30px 120px -60px rgba(15, 23, 42, 0.55);
+      overflow: hidden;
+    }
+
+    .window__bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.16));
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .lights {
+      display: flex;
+      gap: 8px;
+      padding-right: 10px;
+    }
+
+    .light {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
+    }
+
+    .light--red {
+      background: #ff5f56;
+    }
+
+    .light--amber {
+      background: #ffbd2f;
+    }
+
+    .light--green {
+      background: #27c93f;
+    }
+
+    .bar__title {
+      display: grid;
+      gap: 6px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(15, 23, 42, 0.6);
+      margin: 0;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #0f172a;
+      margin: 0;
+    }
+
+    .window__body {
+      padding: 14px;
+      background: linear-gradient(145deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.96));
+    }
+  </style>
 </BaseLayout>
