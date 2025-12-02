@@ -1,14 +1,30 @@
 import { defineConfig } from 'astro/config'
-import react from '@astrojs/react'
-import vue from '@astrojs/vue'
+import React from '@astrojs/react'
+import Solid from '@astrojs/solid-js'
+import Svelte from '@astrojs/svelte'
+import Vue from '@astrojs/vue'
 
 export default defineConfig({
   integrations: [
-    vue({
-      include: ['src/**/*.{vue,md,mdx}', 'src/**/vue/**/*.{js,ts,jsx,tsx,vue}'],
+    Vue({
+      include: ['**/*.vue'],
     }),
-    react({
-      include: ['src/**/*.{js,ts,jsx,tsx}', 'src/**/react/**/*.{js,ts,jsx,tsx}'],
+    React({
+      include: ['**/*.react.tsx'],
+      experimentalReactChildren: true,
     }),
+    Solid({
+      include: [
+        '**/*.solid.tsx',
+        '**/*/*.solid.tsx',
+        '**/node_modules/@suid/material/**',
+      ],
+    }),
+    Svelte({
+      include: ['**/*.svelte'],
+    }),
+    // UnoCSS({
+    //   injectReset: true,
+    // }),
   ],
 })
