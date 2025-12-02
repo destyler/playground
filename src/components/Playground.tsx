@@ -33,9 +33,17 @@ export default function Playground() {
   const [files, setFiles] = useState<File[]>(FRAMEWORKS['vue'].defaultFiles);
   const [activeFile, setActiveFile] = useState<string>(FRAMEWORKS['vue'].defaultFiles.find(f => f.active)?.name || FRAMEWORKS['vue'].defaultFiles[0].name);
   
+  // Ref to track activeFile in callbacks
+  const activeFileRef = useRef(activeFile);
+  useEffect(() => {
+    activeFileRef.current = activeFile;
+  }, [activeFile]);
+
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const isIframeLoadedRef = useRef(false);
+  const previousFrameworkRef = useRef<Framework>(activeFramework);
 
   // Initialize Editor
   useEffect(() => {
@@ -53,7 +61,7 @@ export default function Playground() {
       editorRef.current.onDidChangeModelContent(() => {
         const newValue = editorRef.current?.getValue();
         if (newValue !== undefined) {
-          setFiles(prev => prev.map(f => f.name === activeFile ? { ...f, content: newValue } : f));
+          setFiles(prev => prev.map(f => f.name === activeFileRef.current ? { ...f, content: newValue } : f));
         }
       });
     }
@@ -106,8 +114,33 @@ export default function Playground() {
   useEffect(() => {
     const updateIframe = () => {
       if (iframeRef.current) {
-        const html = generateHtml(activeFramework, files);
-        iframeRef.current.srcdoc = html;
+        // If framework changed, we must reload the iframe
+        if (previousFrameworkRef.current !== activeFramework) {
+          isIframeLoadedRef.current = false;
+          previousFrameworkRef.current = activeFramework;
+        }
+
+        if (isIframeLoadedRef.current) {
+          // Post message for updates
+          const filesMap = files.reduce((acc, file) => {
+            acc[file.name] = file.content;
+            return acc;
+          }, {} as Record<string, string>);
+          
+          iframeRef.current.contentWindow?.postMessage({
+            type: 'UPDATE_FILES',
+            files: filesMap
+          }, '*');
+        } else {
+          // Full reload
+          const html = generateHtml(activeFramework, files);
+          iframeRef.current.srcdoc = html;
+          // Mark as loaded after a short delay to allow script execution
+          // Ideally we should listen for a 'LOADED' message from iframe
+          setTimeout(() => {
+            isIframeLoadedRef.current = true;
+          }, 500);
+        }
       }
     };
 
