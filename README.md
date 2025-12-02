@@ -1,28 +1,33 @@
-# Destyler Playground (Astro reboot)
+# Multi-Framework Playground
 
-Fresh start for a multi-framework Destyler playground powered by Astro. The old Vite + Vue REPL has been cleared out so we can rebuild with Vue, React, Svelte, Solid, and vanilla demos side-by-side.
+This is a playground project built with Astro, supporting Vue, React, Solid, and Svelte.
 
-## Quick start
+## Features
+
+- **Multi-Framework Support**: Switch between Vue, React, Solid, and Svelte.
+- **CDN-based**: All framework dependencies are loaded via CDN in the preview iframe, ensuring isolation and lightweight initial load.
+- **Monaco Editor**: Integrated code editor with syntax highlighting.
+- **Live Preview**: Code is compiled (if necessary) and executed in the browser.
+
+## How it works
+
+1.  **Shell**: The main application is built with Astro and React (for the Playground component).
+2.  **Editor**: Monaco Editor is used for code input.
+3.  **Preview**: An `iframe` is used to render the user's code.
+4.  **Compilation**:
+    -   **React**: Uses `@babel/standalone` in the iframe to compile JSX.
+    -   **Vue**: Uses `vue.global.js` (Runtime + Compiler) to compile templates on the fly.
+    -   **Solid**: Uses `solid-js/html` (Tagged Template Literals) to avoid complex in-browser JSX compilation for this demo.
+    -   **Svelte**: Uses `svelte/compiler` from CDN to compile Svelte components in the browser.
+
+## Running the project
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-## What’s included
+## Notes
 
-- Astro 5 with Vue, React, Svelte, and Solid integrations wired up
-- UnoCSS (same presets as before) and a minimal base layout
-- Clean TypeScript + ESLint + Prettier setup
-- Vue import-map playground that pulls Destyler 0.2.x straight from jsDelivr
-- React, Svelte, and Solid dialog demos bundled from npm (no CDN import map)
-
-## Next steps
-
-- Add Sandpack/WebContainer-based playgrounds for other frameworks
-- Shareable state (hash/URL) and unified styling across demos
-- Document how to pin additional CDN dependencies per framework
-
-## License
-
-[MIT](./LICENSE)
+-   **SolidJS**: Uses `html` tagged templates for simplicity in the CDN environment.
+-   **Svelte**: Uses the Svelte 4 compiler from CDN.
