@@ -1,19 +1,7 @@
-import { reactDtsMap } from '../utils/react-dts'
-
-export function getReactMonacoConfig(monaco: any) {
-  const extraLibs: any[] = [];
-  reactDtsMap.forEach((content, filePath) => {
-    extraLibs.push({ content, filePath });
-  });
-
-  return {
-    compilerOptions: {
-      jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
-      jsxImportSource: 'react',
-    },
-    extraLibs,
-  }
-}
+/**
+ * React preview script generator
+ * This file only contains the preview runtime script generation
+ */
 
 export function generateReactScript(serializedFiles: string) {
   return `

@@ -1,11 +1,7 @@
-export function getSvelteMonacoConfig(monaco: any) {
-  return {
-    compilerOptions: {
-      jsx: monaco.languages.typescript.JsxEmit.Preserve,
-    },
-    extraLibs: [],
-  }
-}
+/**
+ * Svelte preview script generator
+ * This file only contains the preview runtime script generation
+ */
 
 export function generateSvelteScript(serializedFiles: string) {
   return `

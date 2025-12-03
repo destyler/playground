@@ -60,15 +60,11 @@ let locale: string | undefined
 // Handle init message to load TypeScript
 self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
   if (msg.data?.event === 'init') {
-    console.log('[Vue Worker] Received init message, loading TypeScript...')
     locale = msg.data.tsLocale
     ts = await importTsFromCdn(msg.data.tsVersion)
-    console.log('[Vue Worker] TypeScript loaded successfully')
     self.postMessage('inited')
     return
   }
-
-  console.log('[Vue Worker] Received message, initializing worker service...')
 
   // Initialize the worker service - this captures subsequent Monaco messages
   worker.initialize(
@@ -76,9 +72,6 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
       ctx: monaco.worker.IWorkerContext<WorkerHost>,
       { tsconfig, dependencies }: CreateData,
     ) => {
-      console.log('[Vue Worker] worker.initialize callback called')
-      console.log('[Vue Worker] tsconfig:', JSON.stringify(tsconfig))
-      console.log('[Vue Worker] dependencies:', Object.keys(dependencies))
       const env: LanguageServiceEnvironment = {
         workspaceFolders: [URI.file('/')],
         locale,
@@ -144,9 +137,6 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
       ) {
         const globalTypes = generateGlobalTypes(options)
         const globalTypesPath = `/node_modules/${getGlobalTypesFileName(options)}`
-        console.log('[Vue Worker] Global types path:', globalTypesPath)
-        console.log('[Vue Worker] Global types content length:', globalTypes.length)
-        console.log('[Vue Worker] Global types content preview:', globalTypes.slice(0, 500))
         options.globalTypesPath = () => globalTypesPath
         const { stat, readFile } = envArg.fs!
         const ctime = Date.now()
@@ -202,24 +192,18 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
       }
 
       function getVueLanguageServicePlugins() {
-        console.log('[Vue Worker] Creating Vue language service plugins...')
         const plugins = createVueLanguageServicePlugins(ts, {
           getComponentDirectives(fileName: string) {
-            console.log('[Vue Worker] getComponentDirectives called for:', fileName)
             return getComponentDirectives(ts, getProgram(), fileName)
           },
           getComponentEvents(fileName: string, tag: string) {
-            console.log('[Vue Worker] getComponentEvents called for:', fileName, tag)
             return getComponentEvents(ts, getProgram(), fileName, tag)
           },
           getComponentNames(fileName: string) {
-            console.log('[Vue Worker] getComponentNames called for:', fileName)
             const result = getComponentNames(ts, getProgram(), fileName)
-            console.log('[Vue Worker] getComponentNames result:', result)
             return result
           },
           getComponentProps(fileName: string, tag: string) {
-            console.log('[Vue Worker] getComponentProps called for:', fileName, 'tag:', tag)
 
             const program = getProgram()
             const checker = program.getTypeChecker()
@@ -227,7 +211,6 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
 
             // Check Vue types availability
             const vueFiles = sourceFiles.filter(sf => sf.fileName.includes('/vue/') || sf.fileName.includes('/vue.d.ts'))
-            console.log('[Vue Worker] Vue type files in program:', vueFiles.map(sf => sf.fileName).slice(0, 10))
 
             // Check the current file's __VLS_self type
             const currentFile = program.getSourceFile(fileName)
@@ -250,43 +233,31 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
               const selfNode = findNode('__VLS_self')
               if (selfNode) {
                 const selfType = checker.getTypeAtLocation(selfNode)
-                console.log('[Vue Worker] __VLS_self type:', checker.typeToString(selfType))
 
                 // Try to get the construct signatures
                 const constructSigs = selfType.getConstructSignatures()
-                console.log('[Vue Worker] __VLS_self construct signatures:', constructSigs.length)
                 if (constructSigs.length > 0) {
                   const instanceType = constructSigs[0].getReturnType()
-                  console.log('[Vue Worker] Instance type from construct sig:', checker.typeToString(instanceType))
-                  console.log('[Vue Worker] Instance type properties:', instanceType.getProperties().map((p: any) => p.name).slice(0, 20))
                 }
               }
 
               const ctxNode = findNode('__VLS_ctx')
               if (ctxNode) {
                 const ctxType = checker.getTypeAtLocation(ctxNode)
-                console.log('[Vue Worker] __VLS_ctx type:', checker.typeToString(ctxType))
-                console.log('[Vue Worker] __VLS_ctx properties:', ctxType.getProperties().map((p: any) => p.name))
               }
 
               const componentsNode = findNode('__VLS_components')
               if (componentsNode) {
                 const componentsType = checker.getTypeAtLocation(componentsNode)
-                console.log('[Vue Worker] __VLS_components type:', checker.typeToString(componentsType))
-                console.log('[Vue Worker] __VLS_components props:', componentsType.getProperties().map((p: any) => p.name))
               }
 
               // Print the generated code around __VLS_self
               const code = currentFile.getText()
               const selfIndex = code.indexOf('const __VLS_self')
-              if (selfIndex >= 0) {
-                console.log('[Vue Worker] Code around __VLS_self:', code.slice(selfIndex, selfIndex + 300))
-              }
             }
 
             // Call the actual getComponentProps
             const result = getComponentProps(ts, program, fileName, tag)
-            console.log('[Vue Worker] getComponentProps result:', result)
             return result
           },
           getComponentSlots(fileName: string) {

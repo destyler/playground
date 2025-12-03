@@ -1,19 +1,7 @@
-import { solidDtsMap } from '../utils/solid-dts'
-
-export function getSolidMonacoConfig(monaco: any) {
-  const extraLibs: any[] = [];
-  solidDtsMap.forEach((content, filePath) => {
-    extraLibs.push({ content, filePath });
-  });
-
-  return {
-    compilerOptions: {
-      jsx: monaco.languages.typescript.JsxEmit.Preserve,
-      jsxImportSource: 'solid-js',
-    },
-    extraLibs,
-  }
-}
+/**
+ * Solid.js preview script generator
+ * This file only contains the preview runtime script generation
+ */
 
 export function generateSolidScript(serializedFiles: string) {
   return `
