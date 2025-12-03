@@ -7,6 +7,8 @@ export default function Playground() {
   const [activeFramework, setActiveFramework] = useState<Framework>('vue')
   const [files, setFiles] = useState<File[]>(FRAMEWORKS.vue.defaultFiles)
   const [activeFile, setActiveFile] = useState<string>(FRAMEWORKS.vue.defaultFiles.find(f => f.active)?.name || FRAMEWORKS.vue.defaultFiles[0].name)
+  const [editingFileName, setEditingFileName] = useState<string | null>(null)
+  const [tempFileName, setTempFileName] = useState<string>('')
 
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const isIframeLoadedRef = useRef(false)
@@ -18,6 +20,7 @@ export default function Playground() {
     const newFiles = FRAMEWORKS[framework].defaultFiles
     setFiles(newFiles)
     setActiveFile(newFiles.find(f => f.active)?.name || newFiles[0].name)
+    setEditingFileName(null)
   }
 
   // Update Iframe
@@ -61,11 +64,47 @@ export default function Playground() {
   }, [files, activeFramework])
 
   const addNewFile = () => {
-    const name = prompt('Enter file name (e.g., Component.vue):')
-    if (name && !files.find(f => f.name === name)) {
-      setFiles([...files, { name, content: '' }])
-      setActiveFile(name)
+    const baseName = 'Component'
+    const extension = activeFramework === 'vue' ? '.vue' : activeFramework === 'svelte' ? '.svelte' : '.tsx'
+    let name = `${baseName}${extension}`
+    let count = 1
+    while (files.find(f => f.name === name)) {
+      name = `${baseName}${count}${extension}`
+      count++
     }
+
+    setFiles([...files, { name, content: '' }])
+    setActiveFile(name)
+    setEditingFileName(name)
+    setTempFileName(name)
+  }
+
+  const startRenaming = (name: string) => {
+    setEditingFileName(name)
+    setTempFileName(name)
+  }
+
+  const finishRenaming = () => {
+    if (!editingFileName)
+      return
+
+    const newName = tempFileName.trim()
+    if (!newName || newName === editingFileName) {
+      setEditingFileName(null)
+      return
+    }
+
+    if (files.find(f => f.name === newName)) {
+      // eslint-disable-next-line no-alert
+      alert('File name already exists')
+      return
+    }
+
+    setFiles(files.map(f => f.name === editingFileName ? { ...f, name: newName } : f))
+    if (activeFile === editingFileName) {
+      setActiveFile(newName)
+    }
+    setEditingFileName(null)
   }
 
   const deleteFile = (name: string) => {
@@ -136,6 +175,7 @@ export default function Playground() {
               <div
                 key={file.name}
                 onClick={() => setActiveFile(file.name)}
+                onDoubleClick={() => startRenaming(file.name)}
                 style={{
                   padding: '8px 12px',
                   cursor: 'pointer',
@@ -150,8 +190,36 @@ export default function Playground() {
                   minWidth: 'fit-content',
                 }}
               >
-                <span>{file.name}</span>
-                {files.length > 1 && (
+                {editingFileName === file.name
+                  ? (
+                      <input
+                        autoFocus
+                        value={tempFileName}
+                        onChange={e => setTempFileName(e.target.value)}
+                        onBlur={finishRenaming}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter')
+                            finishRenaming()
+                          if (e.key === 'Escape')
+                            setEditingFileName(null)
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          backgroundColor: '#333',
+                          color: '#fff',
+                          border: '1px solid #555',
+                          borderRadius: '2px',
+                          padding: '2px 4px',
+                          fontSize: '0.9rem',
+                          outline: 'none',
+                          width: '100px',
+                        }}
+                      />
+                    )
+                  : (
+                      <span>{file.name}</span>
+                    )}
+                {files.length > 1 && editingFileName !== file.name && (
                   <span
                     onClick={(e) => {
                       e.stopPropagation()
