@@ -51,13 +51,13 @@ export interface TsConfig {
     lib?: string[]
   }
   vueCompilerOptions?: {
-    target?: num,er
+    target?: number
   }
 }
 
 /**
  * Language configuration for Monaco
- */,export interface LanguageConfig {
+ */export interface LanguageConfig {
   wordPattern?: RegExp
   brackets?: [string, string][]
   autoClosingPairs?: { open: string, close: string }[]
