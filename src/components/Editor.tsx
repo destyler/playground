@@ -204,7 +204,7 @@ if (typeof window !== 'undefined') {
           })
           worker.postMessage({
             event: 'init',
-            tsVersion: '5.6.2',
+            tsVersion: 'latest',
             tsLocale: undefined,
           } satisfies WorkerMessage)
         })
@@ -261,20 +261,23 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
     monaco.languages.register({ id: 'css', extensions: ['.css'] })
     monaco.languages.setLanguageConfiguration('vue', vueLanguageConf)
 
-    // Dependencies for Vue
+    // Dependencies for Vue - following vuejs/repl pattern exactly
+    // The typescript dependency is critical for CDN type resolution
+    // Using 'latest' to always get the newest version from CDN
     const dependencies: Record<string, string> = {
-      'vue': '3.5.25',
-      '@vue/compiler-core': '3.5.25',
-      '@vue/compiler-dom': '3.5.25',
-      '@vue/compiler-sfc': '3.5.25',
-      '@vue/compiler-ssr': '3.5.25',
-      '@vue/reactivity': '3.5.25',
-      '@vue/runtime-core': '3.5.25',
-      '@vue/runtime-dom': '3.5.25',
-      '@vue/shared': '3.5.25',
+      'typescript': 'latest',
+      'vue': 'latest',
+      '@vue/compiler-core': 'latest',
+      '@vue/compiler-dom': 'latest',
+      '@vue/compiler-sfc': 'latest',
+      '@vue/compiler-ssr': 'latest',
+      '@vue/reactivity': 'latest',
+      '@vue/runtime-core': 'latest',
+      '@vue/runtime-dom': 'latest',
+      '@vue/shared': 'latest',
     }
 
-    // tsconfig
+    // tsconfig - exactly matching vuejs/repl
     const tsconfig = {
       compilerOptions: {
         allowJs: true,
@@ -284,11 +287,6 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
         module: 'ESNext',
         moduleResolution: 'Bundler',
         allowImportingTsExtensions: true,
-        // Important: Enable strict mode for better type inference
-        strict: true,
-        // Allow synthetic default imports
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
       },
       vueCompilerOptions: {
         target: 3.4,
@@ -394,7 +392,7 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
   // Sync files to Monaco Models
   useEffect(() => {
     if (activeFramework === 'vue') {
-      // Add tsconfig.json for Vue language service - this is critical for props IntelliSense
+      // Add tsconfig.json for Vue language service - matching vuejs/repl exactly
       const tsconfigUri = monaco.Uri.parse('file:///tsconfig.json')
       const tsconfigContent = JSON.stringify({
         compilerOptions: {
@@ -405,9 +403,6 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
           module: 'ESNext',
           moduleResolution: 'Bundler',
           allowImportingTsExtensions: true,
-          strict: true,
-          esModuleInterop: true,
-          allowSyntheticDefaultImports: true,
         },
         vueCompilerOptions: {
           target: 3.4,
