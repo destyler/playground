@@ -15,7 +15,8 @@ import {
   getDefaultCompilerOptions,
   getGlobalTypesFileName,
 } from '@vue/language-core'
-import { LanguageService, createVueLanguageServicePlugins } from '@vue/language-service'
+import type { LanguageService } from '@vue/language-service'
+import { createVueLanguageServicePlugins } from '@vue/language-service'
 // @ts-expect-error - worker export
 import * as worker from 'monaco-editor-core/esm/vs/editor/editor.worker'
 import { create as createTypeScriptDirectiveCommentPlugin } from 'volar-service-typescript/lib/plugins/directiveComment'
@@ -281,11 +282,11 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
               position,
             )
           },
-          async getQuickInfoAtPosition(fileName: string, position: number) {
+          async getQuickInfoAtPosition(fileName: string, position: { line: number, character: number }) {
             const uri = asUri(fileName)
             const sourceScript = getLanguageService().context.language.scripts.get(uri)
             if (!sourceScript) {
-              return
+              return ''
             }
             const hover = await getLanguageService().getHover(uri, position)
             let text = ''

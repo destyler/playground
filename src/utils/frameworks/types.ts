@@ -42,16 +42,22 @@ export interface TsConfig {
     module?: string
     moduleResolution?: string
     allowImportingTsExtensions?: boolean
+    noEmit?: boolean
+    resolveJsonModule?: boolean
+    isolatedModules?: boolean
+    esModuleInterop?: boolean
+    strict?: boolean
+    skipLibCheck?: boolean
+    lib?: string[]
   }
   vueCompilerOptions?: {
-    target?: number
+    target?: num,er
   }
 }
 
 /**
  * Language configuration for Monaco
- */
-export interface LanguageConfig {
+ */,export interface LanguageConfig {
   wordPattern?: RegExp
   brackets?: [string, string][]
   autoClosingPairs?: { open: string, close: string }[]

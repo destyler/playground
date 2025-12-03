@@ -76,8 +76,8 @@ function registerLanguages(config: FrameworkConfig) {
   // Register common languages
   monaco.languages.register({ id: 'javascript', extensions: ['.js'] })
   monaco.languages.register({ id: 'typescript', extensions: ['.ts'] })
-  monaco.languages.register({ id: 'javascriptreact', extensions: ['.jsx'] })
-  monaco.languages.register({ id: 'typescriptreact', extensions: ['.tsx'] })
+  monaco.languages.register({ id: 'jsx', extensions: ['.jsx'] })
+  monaco.languages.register({ id: 'tsx', extensions: ['.tsx'] })
   monaco.languages.register({ id: 'css', extensions: ['.css'] })
   monaco.languages.register({ id: 'json', extensions: ['.json'] })
 }
@@ -86,9 +86,6 @@ function registerLanguages(config: FrameworkConfig) {
  * Setup Monaco environment for framework workers
  */
 if (typeof window !== 'undefined') {
-  // Worker map for caching initialized workers
-  const workerCache = new Map<string, Worker>()
-
   // eslint-disable-next-line no-restricted-globals
   ;(self as any).MonacoEnvironment = {
     async getWorker(_: any, label: string) {
@@ -96,13 +93,8 @@ if (typeof window !== 'undefined') {
       const WorkerClass = getWorkerConstructor(framework)
 
       if (WorkerClass) {
-        // Check cache first
-        if (workerCache.has(framework)) {
-          return workerCache.get(framework)!
-        }
-
+        // Always create a new worker to ensure fresh state
         const worker = await initializeWorker(WorkerClass)
-        workerCache.set(framework, worker)
         return worker
       }
 
@@ -121,6 +113,7 @@ interface EditorProps {
 
 // Volar dispose function
 let disposeVolar: (() => void) | undefined
+let editorOpenerDispose: monaco.IDisposable | undefined
 
 export default function Editor({ files, activeFile, activeFramework, onFileChange, onFileSelect }: EditorProps) {
   const editorContainerRef = useRef<HTMLDivElement>(null)
@@ -146,8 +139,15 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
     // Clean up previous Volar setup
     disposeVolar?.()
     disposeVolar = undefined
+    editorOpenerDispose?.dispose()
+    editorOpenerDispose = undefined
     volarWorkerRef.current?.dispose()
     volarWorkerRef.current = null
+
+    // Dispose all existing models when switching frameworks
+    monaco.editor.getModels().forEach((model) => {
+      model.dispose()
+    })
 
     // Check if this framework has language service support
     if (!config || !hasLanguageServiceSupport(activeFramework as any)) {
@@ -221,7 +221,7 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
     setupProviders()
 
     // Support for go to definition
-    monaco.editor.registerEditorOpener({
+    editorOpenerDispose = monaco.editor.registerEditorOpener({
       openCodeEditor(_source, resource) {
         if (resource.toString().startsWith('file:///node_modules')) {
           return true
@@ -249,6 +249,8 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
     return () => {
       disposeVolar?.()
       disposeVolar = undefined
+      editorOpenerDispose?.dispose()
+      editorOpenerDispose = undefined
       volarWorkerRef.current?.dispose()
       volarWorkerRef.current = null
     }
@@ -292,9 +294,9 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
       if (ext === 'vue')
         lang = 'vue'
       else if (ext === 'tsx')
-        lang = 'typescriptreact'
+        lang = 'tsx' // 使用 tsx 而不是 typescriptreact，以便 Shiki 能提供高亮
       else if (ext === 'jsx')
-        lang = 'javascriptreact'
+        lang = 'jsx' // 使用 jsx 而不是 javascriptreact
       else if (ext === 'ts')
         lang = 'typescript'
       else if (ext === 'js')

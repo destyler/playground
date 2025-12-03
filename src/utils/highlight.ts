@@ -21,7 +21,7 @@ let registered = false
 
 export function registerHighlighter() {
   if (registered)
-return
+    return
   registered = true
 
   const highlighter = createHighlighterCoreSync({
@@ -51,4 +51,31 @@ return
 
   // 使用 Shiki 注册高亮
   shikiToMonaco(highlighter, monaco)
+
+  // 设置 TSX/JSX 语言配置
+  const jsxConfig: monaco.languages.LanguageConfiguration = {
+    comments: { lineComment: '//', blockComment: ['/*', '*/'] },
+    brackets: [['{', '}'], ['[', ']'], ['(', ')'], ['<', '>']],
+    autoClosingPairs: [
+      { open: '{', close: '}' },
+      { open: '[', close: ']' },
+      { open: '(', close: ')' },
+      { open: '"', close: '"' },
+      { open: '\'', close: '\'' },
+      { open: '`', close: '`' },
+      { open: '<', close: '>' },
+    ],
+    surroundingPairs: [
+      { open: '{', close: '}' },
+      { open: '[', close: ']' },
+      { open: '(', close: ')' },
+      { open: '"', close: '"' },
+      { open: '\'', close: '\'' },
+      { open: '`', close: '`' },
+      { open: '<', close: '>' },
+    ],
+  }
+
+  monaco.languages.setLanguageConfiguration('tsx', jsxConfig)
+  monaco.languages.setLanguageConfiguration('jsx', jsxConfig)
 }

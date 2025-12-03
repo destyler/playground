@@ -11,7 +11,7 @@ export const REACT_TEMPLATE: { name: string, color: string, cdn: string[], defau
   defaultFiles: [
     {
       name: 'App.tsx',
-      content: `import Counter from './Counter';
+      content: `import Counter from './Counter.tsx';
 
 export default function App() {
   return (

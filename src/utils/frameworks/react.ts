@@ -54,7 +54,33 @@ const reactTsConfig: TsConfig = {
     module: 'ESNext',
     moduleResolution: 'Bundler',
     allowImportingTsExtensions: true,
+    noEmit: true,
+    isolatedModules: true,
+    esModuleInterop: true,
+    strict: false,
+    skipLibCheck: true,
+    lib: ['ESNext', 'DOM', 'DOM.Iterable'],
   },
+}
+
+/**
+ * Generate React global types for better type inference
+ */
+function generateReactGlobalTypes(): string {
+  return `
+/// <reference types="react" />
+/// <reference types="react-dom" />
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
+export {};
+`
 }
 
 /**
@@ -62,11 +88,12 @@ const reactTsConfig: TsConfig = {
  */
 export const reactConfig: FrameworkConfig = {
   type: 'react',
-  languageIds: ['javascript', 'typescript', 'javascriptreact', 'typescriptreact'],
+  languageIds: ['javascript', 'typescript', 'jsx', 'tsx'],
   extensions: ['.tsx', '.jsx', '.ts', '.js'],
   languageConfiguration: reactLanguageConfiguration,
   dependencies: reactDependencies,
   tsconfig: reactTsConfig,
   filePathPrefix: '',
   workerLabel: 'react',
+  generateGlobalTypes: generateReactGlobalTypes,
 }
