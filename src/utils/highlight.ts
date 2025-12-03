@@ -8,6 +8,7 @@ import langHtml from 'shiki/langs/html.mjs'
 import langJavascript from 'shiki/langs/javascript.mjs'
 import langJson from 'shiki/langs/json.mjs'
 import langJsx from 'shiki/langs/jsx.mjs'
+import langSvelte from 'shiki/langs/svelte.mjs'
 import langTsx from 'shiki/langs/tsx.mjs'
 import langTypescript from 'shiki/langs/typescript.mjs'
 // 导入语言
@@ -28,6 +29,7 @@ export function registerHighlighter() {
     themes: [themeDark, themeLight],
     langs: [
       langVue,
+      langSvelte,
       langTsx,
       langJsx,
       langHtml,
@@ -41,6 +43,7 @@ export function registerHighlighter() {
 
   // 注册语言
   monaco.languages.register({ id: 'vue' })
+  monaco.languages.register({ id: 'svelte' })
   monaco.languages.register({ id: 'typescript' })
   monaco.languages.register({ id: 'javascript' })
   monaco.languages.register({ id: 'tsx' })

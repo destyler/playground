@@ -12,6 +12,7 @@ import { registerHighlighter } from '../utils/highlight'
 // Import workers dynamically
 import ReactWorker from '../workers/react.worker?worker'
 import SolidWorker from '../workers/solid.worker?worker'
+import SvelteWorker from '../workers/svelte.worker?worker'
 import VueWorker from '../workers/vue.worker?worker'
 
 // Register Shiki highlighter for syntax highlighting
@@ -42,6 +43,8 @@ function getWorkerConstructor(framework: Framework): (new () => Worker) | null {
       return ReactWorker
     case 'solid':
       return SolidWorker
+    case 'svelte':
+      return SvelteWorker
     default:
       return null
   }
@@ -74,6 +77,10 @@ function registerLanguages(config: FrameworkConfig) {
   if (config.type === 'vue') {
     monaco.languages.register({ id: 'vue', extensions: ['.vue'] })
     monaco.languages.setLanguageConfiguration('vue', config.languageConfiguration)
+  }
+  else if (config.type === 'svelte') {
+    monaco.languages.register({ id: 'svelte', extensions: ['.svelte'] })
+    monaco.languages.setLanguageConfiguration('svelte', config.languageConfiguration)
   }
 
   // Register common languages
@@ -296,6 +303,8 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
       let lang = 'plaintext'
       if (ext === 'vue')
         lang = 'vue'
+      else if (ext === 'svelte')
+        lang = 'svelte'
       else if (ext === 'tsx')
         lang = 'tsx' // 使用 tsx 而不是 typescriptreact，以便 Shiki 能提供高亮
       else if (ext === 'jsx')
@@ -306,7 +315,7 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
         lang = 'javascript'
       else if (ext === 'css')
         lang = 'css'
-      else if (ext === 'html' || ext === 'svelte')
+      else if (ext === 'html')
         lang = 'html'
       else if (ext === 'json')
         lang = 'json'
