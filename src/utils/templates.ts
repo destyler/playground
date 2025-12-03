@@ -1,8 +1,12 @@
 import type { File, Framework } from './templates/types'
-import { generateReactScript, REACT_TEMPLATE } from './templates/react'
-import { generateSolidScript, SOLID_TEMPLATE } from './templates/solid'
-import { generateSvelteScript, SVELTE_TEMPLATE } from './templates/svelte'
-import { generateVueScript, VUE_TEMPLATE } from './templates/vue'
+import { generateReactScript } from '../workers/react'
+import { generateSolidScript } from '../workers/solid'
+import { generateSvelteScript } from '../workers/svelte'
+import { generateVueScript } from '../workers/vue'
+import { REACT_TEMPLATE } from './templates/react'
+import { SOLID_TEMPLATE } from './templates/solid'
+import { SVELTE_TEMPLATE } from './templates/svelte'
+import { VUE_TEMPLATE } from './templates/vue'
 
 export type { File, Framework }
 

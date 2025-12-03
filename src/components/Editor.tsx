@@ -7,6 +7,10 @@ import HTMLWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
 import JSONWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import TSWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import React, { useEffect, useRef } from 'react'
+import { getReactMonacoConfig } from '../workers/react'
+import { getSolidMonacoConfig } from '../workers/solid'
+import { getSvelteMonacoConfig } from '../workers/svelte'
+import { getVueMonacoConfig } from '../workers/vue'
 
 if (typeof window !== 'undefined') {
   globalThis.MonacoEnvironment = {
@@ -38,60 +42,53 @@ interface EditorProps {
 export default function Editor({ files, activeFile, activeFramework, onFileChange }: EditorProps) {
   const editorContainerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+  const extraLibsRef = useRef<monaco.IDisposable[]>([])
 
   // Configure Monaco for different frameworks
   useEffect(() => {
     const ts = monaco.typescript
     const defaults = ts.typescriptDefaults
-    const compilerOptions = defaults.getCompilerOptions()
+
+    // Dispose previous extra libs
+    extraLibsRef.current.forEach(lib => lib.dispose())
+    extraLibsRef.current = []
+
+    const baseOptions = {
+      target: ts.ScriptTarget.Latest,
+      allowNonTsExtensions: true,
+      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      module: ts.ModuleKind.ESNext,
+      noEmit: true,
+      esModuleInterop: true,
+    }
+
+    let config = {
+      compilerOptions: {},
+      extraLibs: [] as { content: string, filePath: string }[],
+    }
 
     if (activeFramework === 'react') {
-      defaults.setCompilerOptions({
-        ...compilerOptions,
-        jsx: ts.JsxEmit.React,
-        jsxFactory: 'React.createElement',
-        jsxFragmentFactory: 'React.Fragment',
-        moduleResolution: ts.ModuleResolutionKind.NodeJs,
-        allowNonTsExtensions: true,
-        target: ts.ScriptTarget.Latest,
-      })
-      // Add a basic React type definition to silence "Cannot find module 'react'"
-      defaults.addExtraLib(
-        `declare module 'react' {
-          export = React;
-        }
-        declare namespace React {
-          function createElement(type: any, props?: any, ...children: any[]): any;
-          function useState<T>(initialState: T | (() => T)): [T, (newState: T | ((prevState: T) => T)) => void];
-          function useEffect(effect: () => void | (() => void), deps?: any[]): void;
-          function useRef<T>(initialValue: T): { current: T };
-          const Fragment: any;
-        }
-        declare namespace JSX {
-          interface IntrinsicElements {
-            [elemName: string]: any;
-          }
-        }
-        `,
-        'file:///node_modules/@types/react/index.d.ts',
-      )
+      config = getReactMonacoConfig(monaco)
     }
     else if (activeFramework === 'solid') {
-      defaults.setCompilerOptions({
-        ...compilerOptions,
-        jsx: ts.JsxEmit.Preserve,
-        jsxImportSource: 'solid-js',
-        allowNonTsExtensions: true,
-      })
+      config = getSolidMonacoConfig(monaco)
     }
-    else {
-      // Reset or default config
-      defaults.setCompilerOptions({
-        ...compilerOptions,
-        jsx: ts.JsxEmit.Preserve,
-        allowNonTsExtensions: true,
-      })
+    else if (activeFramework === 'vue') {
+      config = getVueMonacoConfig(monaco)
     }
+    else if (activeFramework === 'svelte') {
+      config = getSvelteMonacoConfig(monaco)
+    }
+
+    defaults.setCompilerOptions({
+      ...baseOptions,
+      ...config.compilerOptions,
+    })
+
+    config.extraLibs.forEach((lib) => {
+      const disposable = defaults.addExtraLib(lib.content, lib.filePath)
+      extraLibsRef.current.push(disposable)
+    })
   }, [activeFramework])
 
   // Sync files to Monaco Models
