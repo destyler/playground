@@ -27,11 +27,16 @@ const msg = ref<string>('Hello World!')
     {
       name: 'Comp.vue',
       content: `<script setup lang="ts">
+const props = defineProps<{
+  message: string
+  count?: number
+}>()
 </script>
 
 <template>
   <div class="comp">
-    I am a component
+    <p>Message: {{ props.message }}</p>
+    <p v-if="props.count !== undefined">Count: {{ props.count }}</p>
   </div>
 </template>
 
@@ -46,5 +51,3 @@ const msg = ref<string>('Hello World!')
     },
   ],
 }
-
-
