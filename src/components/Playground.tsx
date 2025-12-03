@@ -263,6 +263,7 @@ export default function Playground() {
               activeFile={activeFile}
               activeFramework={activeFramework}
               onFileChange={handleFileChange}
+              onFileSelect={setActiveFile}
             />
           </div>
         </div>

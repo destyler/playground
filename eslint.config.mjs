@@ -5,5 +5,6 @@ export default antfu({
   astro: true,
   ignores: [
     '.specstory/**',
+    'src/workers/vue.worker.ts',
   ],
 })

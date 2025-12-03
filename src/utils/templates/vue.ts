@@ -10,11 +10,11 @@ export const VUE_TEMPLATE: { name: string, color: string, cdn: string[], default
   defaultFiles: [
     {
       name: 'App.vue',
-      content: `<script setup>
+      content: `<script setup lang="ts">
 import { ref } from 'vue'
 import Comp from './Comp.vue'
 
-const msg = ref('Hello World!')
+const msg = ref<string>('Hello World!')
 </script>
 
 <template>
@@ -26,7 +26,10 @@ const msg = ref('Hello World!')
     },
     {
       name: 'Comp.vue',
-      content: `<template>
+      content: `<script setup lang="ts">
+</script>
+
+<template>
   <div class="comp">
     I am a component
   </div>
