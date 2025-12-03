@@ -8,29 +8,31 @@ export function generateSolidScript(serializedFiles: string) {
     <script type="module">
       import * as SolidJS from "https://esm.sh/solid-js@1.8.16";
       import * as SolidWeb from "https://esm.sh/solid-js@1.8.16/web";
-      import SolidHTML from "https://esm.sh/solid-js@1.8.16/html?deps=solid-js@1.8.16,solid-js@1.8.16/web";
 
       window.SolidJS = SolidJS;
       window.SolidWeb = SolidWeb;
-      window.SolidHTML = SolidHTML;
 
       if (window.startApp) window.startApp();
     </script>
+    <script src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js"></script>
+    <script type="module">
+      import babelPresetSolid from "https://esm.sh/babel-preset-solid@1.8.16";
+
+      window.babelPresetSolid = babelPresetSolid;
+
+      if (window.SolidJS && window.Babel) window.startApp();
+    </script>
     <script>
       window.startApp = function() {
-        if (!window.SolidJS) return; // Wait for module load
+        if (!window.SolidJS || !window.Babel || !window.babelPresetSolid) return;
 
         let dispose = null;
         window.__FILES__ = ${serializedFiles};
         window.__COMPILED_FILES__ = {};
 
-        // SolidHTML is likely the default export from the module
-        const htmlFn = window.SolidHTML.default || window.SolidHTML;
-
         const modules = {
           'solid-js': window.SolidJS,
           'solid-js/web': window.SolidWeb,
-          'solid-js/html': htmlFn // Directly expose the function as the module export
         };
 
         function require(id) {
@@ -54,8 +56,6 @@ export function generateSolidScript(serializedFiles: string) {
              window.__COMPILED_FILES__[filename] = module;
              return module.exports;
           }
-          // Fallback for solid-js/html if it's imported as default
-          if (id === 'solid-js/html') return modules['solid-js/html'];
 
           throw new Error('Module not found: ' + id);
         }
@@ -70,14 +70,18 @@ export function generateSolidScript(serializedFiles: string) {
           document.getElementById('app').innerHTML = '';
           window.__COMPILED_FILES__ = {};
 
-          // Compile all files
+          // Compile all files with babel-preset-solid
           for (const [name, content] of Object.entries(window.__FILES__)) {
              try {
-               const output = Babel.transform(content, {
-                 presets: [['env', { modules: 'commonjs' }]],
+               const result = window.Babel.transform(content, {
+                 presets: [
+                   [window.babelPresetSolid, { generate: 'dom', hydratable: false }],
+                   ['typescript', { onlyRemoveTypeImports: true }],
+                 ],
+                 plugins: [['transform-modules-commonjs']],
                  filename: name
-               }).code;
-               window.__COMPILED_FILES__[name + '_code'] = output;
+               });
+               window.__COMPILED_FILES__[name + '_code'] = result.code;
              } catch (e) {
                console.error('Compilation error in ' + name, e);
                throw e;
@@ -110,6 +114,9 @@ export function generateSolidScript(serializedFiles: string) {
         });
       };
 
-      if (window.SolidJS) window.startApp();
+        // Try to start if everything is loaded
+      if (window.SolidJS && window.Babel && window.babelPresetSolid) {
+        window.startApp();
+      }
     </script>`
 }

@@ -3,44 +3,40 @@ import type { File } from './types'
 export const SOLID_TEMPLATE: { name: string, color: string, cdn: string[], defaultFiles: File[] } = {
   name: 'Solid',
   color: '#2c4f7c',
-  cdn: [
-    'https://unpkg.com/@babel/standalone/babel.min.js',
-  ],
+  cdn: [],
   defaultFiles: [
     {
       name: 'App.tsx',
-      content: `import { createSignal } from 'solid-js';
-import { render } from 'solid-js/web';
-import html from 'solid-js/html';
-import Counter from './Counter';
+      content: `import { render } from 'solid-js/web'
+import Counter from './Counter.tsx'
 
 function App() {
-  return html\`
+  return (
     <div class="container">
       <h1>Solid App</h1>
-      <\${Counter} />
+      <Counter />
     </div>
-  \`;
+  )
 }
 
-render(() => html\`<\${App} />\`, document.getElementById('app'));`,
+render(() => <App />, document.getElementById('app')!)
+`,
       active: true,
     },
     {
       name: 'Counter.tsx',
-      content: `import { createSignal } from 'solid-js';
-import html from 'solid-js/html';
+      content: `import { createSignal } from 'solid-js'
 
 export default function Counter() {
-  const [count, setCount] = createSignal(0);
-  return html\`
-    <button onClick=\${() => setCount(c => c + 1)}>
-      Count is: \${count()}
+  const [count, setCount] = createSignal(0)
+
+  return (
+    <button onClick={() => setCount(c => c + 1)}>
+      Count is: {count()}
     </button>
-  \`;
-}`,
+  )
+}
+`,
     },
   ],
 }
-
-

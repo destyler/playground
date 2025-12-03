@@ -11,6 +11,7 @@ import { registerHighlighter } from '../utils/highlight'
 
 // Import workers dynamically
 import ReactWorker from '../workers/react.worker?worker'
+import SolidWorker from '../workers/solid.worker?worker'
 import VueWorker from '../workers/vue.worker?worker'
 
 // Register Shiki highlighter for syntax highlighting
@@ -39,6 +40,8 @@ function getWorkerConstructor(framework: Framework): (new () => Worker) | null {
       return VueWorker
     case 'react':
       return ReactWorker
+    case 'solid':
+      return SolidWorker
     default:
       return null
   }

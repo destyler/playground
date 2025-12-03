@@ -1,9 +1,11 @@
 import type { FrameworkConfig, FrameworkType } from './types'
 import { reactConfig } from './react'
+import { solidConfig } from './solid'
 import { vueConfig } from './vue'
 
 export * from './types'
 export { reactConfig } from './react'
+export { solidConfig } from './solid'
 export { vueConfig } from './vue'
 
 /**
@@ -12,7 +14,7 @@ export { vueConfig } from './vue'
 export const frameworkConfigs: Record<FrameworkType, FrameworkConfig | null> = {
   vue: vueConfig,
   react: reactConfig,
-  solid: null, // TODO: Add Solid config when ready
+  solid: solidConfig,
   svelte: null, // TODO: Add Svelte config when ready
 }
 
