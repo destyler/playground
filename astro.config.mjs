@@ -1,8 +1,8 @@
-import { defineConfig } from 'astro/config'
 import React from '@astrojs/react'
 import Solid from '@astrojs/solid-js'
 import Svelte from '@astrojs/svelte'
 import Vue from '@astrojs/vue'
+import { defineConfig } from 'astro/config'
 
 export default defineConfig({
   integrations: [

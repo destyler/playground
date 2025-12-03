@@ -1,10 +1,10 @@
-import type { File } from './types';
+import type { File } from './types'
 
-export const SVELTE_TEMPLATE: { name: string; color: string; cdn: string[]; defaultFiles: File[] } = {
+export const SVELTE_TEMPLATE: { name: string, color: string, cdn: string[], defaultFiles: File[] } = {
   name: 'Svelte',
   color: '#ff3e00',
   cdn: [
-    'https://unpkg.com/@babel/standalone/babel.min.js'
+    'https://unpkg.com/@babel/standalone/babel.min.js',
   ],
   defaultFiles: [
     {
@@ -21,7 +21,7 @@ export const SVELTE_TEMPLATE: { name: string; color: string; cdn: string[]; defa
 <style>
   h1 { color: #ff3e00; }
 </style>`,
-      active: true
+      active: true,
     },
     {
       name: 'Counter.svelte',
@@ -34,12 +34,13 @@ export const SVELTE_TEMPLATE: { name: string; color: string; cdn: string[]; defa
 
 <button on:click={increment}>
   Count is: {count}
-</button>`
-    }
-  ]
-};
+</button>`,
+    },
+  ],
+}
 
-export const generateSvelteScript = (serializedFiles: string) => `
+export function generateSvelteScript(serializedFiles: string) {
+  return `
     <script type="module">
       import * as Svelte from "https://esm.sh/svelte@4.2.12";
       import * as SvelteInternal from "https://esm.sh/svelte@4.2.12/internal?deps=svelte@4.2.12";
@@ -159,4 +160,5 @@ export const generateSvelteScript = (serializedFiles: string) => `
       };
       
       if (window.Svelte) window.startApp();
-    </script>`;
+    </script>`
+}

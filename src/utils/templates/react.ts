@@ -1,12 +1,12 @@
-import type { File } from './types';
+import type { File } from './types'
 
-export const REACT_TEMPLATE: { name: string; color: string; cdn: string[]; defaultFiles: File[] } = {
+export const REACT_TEMPLATE: { name: string, color: string, cdn: string[], defaultFiles: File[] } = {
   name: 'React',
   color: '#61dafb',
   cdn: [
     'https://unpkg.com/react@18/umd/react.development.js',
     'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
-    'https://unpkg.com/@babel/standalone/babel.min.js'
+    'https://unpkg.com/@babel/standalone/babel.min.js',
   ],
   defaultFiles: [
     {
@@ -22,7 +22,7 @@ export default function App() {
     </div>
   );
 }`,
-      active: true
+      active: true,
     },
     {
       name: 'Counter.tsx',
@@ -35,12 +35,13 @@ export default function Counter() {
       Count is: {count}
     </button>
   );
-}`
-    }
-  ]
-};
+}`,
+    },
+  ],
+}
 
-export const generateReactScript = (serializedFiles: string) => `
+export function generateReactScript(serializedFiles: string) {
+  return `
     <script>
       window.process = { env: { NODE_ENV: 'development' } };
       
@@ -122,4 +123,5 @@ export const generateReactScript = (serializedFiles: string) => `
           update(e.data.files);
         }
       });
-    </script>`;
+    </script>`
+}

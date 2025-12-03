@@ -1,7 +1,7 @@
-export type Framework = 'vue' | 'react' | 'solid' | 'svelte';
+export type Framework = 'vue' | 'react' | 'solid' | 'svelte'
 
 export interface File {
-  name: string;
-  content: string;
-  active?: boolean;
+  name: string
+  content: string
+  active?: boolean
 }

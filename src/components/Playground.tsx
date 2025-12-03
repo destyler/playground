@@ -1,49 +1,50 @@
-import React, { useState, useEffect, useRef } from 'react';
-import * as monaco from 'monaco-editor';
-import { FRAMEWORKS, generateHtml, type Framework, type File } from '../utils/templates';
+import type { File, Framework } from '../utils/templates'
+import * as monaco from 'monaco-editor'
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
+import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
+import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+import React, { useEffect, useRef, useState } from 'react'
+import { FRAMEWORKS, generateHtml } from '../utils/templates'
 
 if (typeof window !== 'undefined') {
-  self.MonacoEnvironment = {
+  globalThis.MonacoEnvironment = {
     getWorker(_: any, label: string) {
       if (label === 'json') {
-        return new jsonWorker();
+        return new jsonWorker()
       }
       if (label === 'css' || label === 'scss' || label === 'less') {
-        return new cssWorker();
+        return new cssWorker()
       }
       if (label === 'html' || label === 'handlebars' || label === 'razor') {
-        return new htmlWorker();
+        return new htmlWorker()
       }
       if (label === 'typescript' || label === 'javascript') {
-        return new tsWorker();
+        return new tsWorker()
       }
-      return new editorWorker();
-    }
-  };
+      return new editorWorker()
+    },
+  }
 }
 
 export default function Playground() {
-  const [activeFramework, setActiveFramework] = useState<Framework>('vue');
-  const [files, setFiles] = useState<File[]>(FRAMEWORKS['vue'].defaultFiles);
-  const [activeFile, setActiveFile] = useState<string>(FRAMEWORKS['vue'].defaultFiles.find(f => f.active)?.name || FRAMEWORKS['vue'].defaultFiles[0].name);
-  
-  // Ref to track activeFile in callbacks
-  const activeFileRef = useRef(activeFile);
-  useEffect(() => {
-    activeFileRef.current = activeFile;
-  }, [activeFile]);
+  const [activeFramework, setActiveFramework] = useState<Framework>('vue')
+  const [files, setFiles] = useState<File[]>(FRAMEWORKS.vue.defaultFiles)
+  const [activeFile, setActiveFile] = useState<string>(FRAMEWORKS.vue.defaultFiles.find(f => f.active)?.name || FRAMEWORKS.vue.defaultFiles[0].name)
 
-  const editorContainerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const isIframeLoadedRef = useRef(false);
-  const previousFrameworkRef = useRef<Framework>(activeFramework);
+  // Ref to track activeFile in callbacks
+  const activeFileRef = useRef(activeFile)
+  useEffect(() => {
+    activeFileRef.current = activeFile
+  }, [activeFile])
+
+  const editorContainerRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const isIframeLoadedRef = useRef(false)
+  const previousFrameworkRef = useRef<Framework>(activeFramework)
 
   // Initialize Editor
   useEffect(() => {
@@ -55,60 +56,70 @@ export default function Playground() {
         automaticLayout: true,
         minimap: { enabled: false },
         fontSize: 14,
-        padding: { top: 16 }
-      });
+        padding: { top: 16 },
+      })
 
       editorRef.current.onDidChangeModelContent(() => {
-        const newValue = editorRef.current?.getValue();
+        const newValue = editorRef.current?.getValue()
         if (newValue !== undefined) {
-          setFiles(prev => prev.map(f => f.name === activeFileRef.current ? { ...f, content: newValue } : f));
+          setFiles((prev) => {
+            const currentFile = prev.find(f => f.name === activeFileRef.current)
+            if (currentFile && currentFile.content === newValue) {
+              return prev
+            }
+            return prev.map(f => f.name === activeFileRef.current ? { ...f, content: newValue } : f)
+          })
         }
-      });
+      })
     }
 
     return () => {
-      editorRef.current?.dispose();
-      editorRef.current = null;
-    };
-  }, []); // Run once on mount
+      editorRef.current?.dispose()
+      editorRef.current = null
+    }
+  }, []) // Run once on mount
 
   // Update editor content when activeFile changes
   useEffect(() => {
     if (editorRef.current) {
-      const file = files.find(f => f.name === activeFile);
+      const file = files.find(f => f.name === activeFile)
       if (file) {
-        const currentValue = editorRef.current.getValue();
+        const currentValue = editorRef.current.getValue()
         if (currentValue !== file.content) {
-          editorRef.current.setValue(file.content);
+          editorRef.current.setValue(file.content)
         }
-        
+
         // Update language
-        const model = editorRef.current.getModel();
+        const model = editorRef.current.getModel()
         if (model) {
-          const ext = file.name.split('.').pop();
+          const ext = file.name.split('.').pop()
           if (ext === 'vue' || ext === 'html' || ext === 'svelte') {
-            monaco.editor.setModelLanguage(model, 'html');
-          } else if (ext === 'ts' || ext === 'tsx') {
-            monaco.editor.setModelLanguage(model, 'typescript');
-          } else if (ext === 'js' || ext === 'jsx') {
-            monaco.editor.setModelLanguage(model, 'javascript');
-          } else if (ext === 'css') {
-            monaco.editor.setModelLanguage(model, 'css');
-          } else if (ext === 'json') {
-            monaco.editor.setModelLanguage(model, 'json');
+            monaco.editor.setModelLanguage(model, 'html')
+          }
+          else if (ext === 'ts' || ext === 'tsx') {
+            monaco.editor.setModelLanguage(model, 'typescript')
+          }
+          else if (ext === 'js' || ext === 'jsx') {
+            monaco.editor.setModelLanguage(model, 'javascript')
+          }
+          else if (ext === 'css') {
+            monaco.editor.setModelLanguage(model, 'css')
+          }
+          else if (ext === 'json') {
+            monaco.editor.setModelLanguage(model, 'json')
           }
         }
       }
     }
-  }, [activeFile]); // Don't depend on files content to avoid loop, just activeFile switch
+  }, [activeFile]) // Don't depend on files content to avoid loop, just activeFile switch
 
   // Handle Framework Change
   const handleFrameworkChange = (framework: Framework) => {
-    setActiveFramework(framework);
-    const newFiles = FRAMEWORKS[framework].defaultFiles;
-    setFiles(newFiles);
-    setActiveFile(newFiles.find(f => f.active)?.name || newFiles[0].name);
-  };
+    setActiveFramework(framework)
+    const newFiles = FRAMEWORKS[framework].defaultFiles
+    setFiles(newFiles)
+    setActiveFile(newFiles.find(f => f.active)?.name || newFiles[0].name)
+  }
 
   // Update Iframe
   useEffect(() => {
@@ -116,66 +127,69 @@ export default function Playground() {
       if (iframeRef.current) {
         // If framework changed, we must reload the iframe
         if (previousFrameworkRef.current !== activeFramework) {
-          isIframeLoadedRef.current = false;
-          previousFrameworkRef.current = activeFramework;
+          isIframeLoadedRef.current = false
+          previousFrameworkRef.current = activeFramework
         }
 
         if (isIframeLoadedRef.current) {
           // Post message for updates
           const filesMap = files.reduce((acc, file) => {
-            acc[file.name] = file.content;
-            return acc;
-          }, {} as Record<string, string>);
-          
+            acc[file.name] = file.content
+            return acc
+          }, {} as Record<string, string>)
+
           iframeRef.current.contentWindow?.postMessage({
             type: 'UPDATE_FILES',
-            files: filesMap
-          }, '*');
-        } else {
+            files: filesMap,
+          }, '*')
+        }
+        else {
           // Full reload
-          const html = generateHtml(activeFramework, files);
-          iframeRef.current.srcdoc = html;
+          const html = generateHtml(activeFramework, files)
+          iframeRef.current.srcdoc = html
           // Mark as loaded after a short delay to allow script execution
           // Ideally we should listen for a 'LOADED' message from iframe
           setTimeout(() => {
-            isIframeLoadedRef.current = true;
-          }, 500);
+            isIframeLoadedRef.current = true
+          }, 500)
         }
       }
-    };
+    }
 
     // Debounce
-    const timer = setTimeout(updateIframe, 1000);
-    return () => clearTimeout(timer);
-  }, [files, activeFramework]);
+    const timer = setTimeout(updateIframe, 1000)
+    return () => clearTimeout(timer)
+  }, [files, activeFramework])
 
   const addNewFile = () => {
-    const name = prompt('Enter file name (e.g., Component.vue):');
+    const name = prompt('Enter file name (e.g., Component.vue):')
     if (name && !files.find(f => f.name === name)) {
-      setFiles([...files, { name, content: '' }]);
-      setActiveFile(name);
+      setFiles([...files, { name, content: '' }])
+      setActiveFile(name)
     }
-  };
+  }
 
   const deleteFile = (name: string) => {
-    if (files.length <= 1) return;
-    const newFiles = files.filter(f => f.name !== name);
-    setFiles(newFiles);
+    if (files.length <= 1)
+      return
+    const newFiles = files.filter(f => f.name !== name)
+    setFiles(newFiles)
     if (activeFile === name) {
-      setActiveFile(newFiles[0].name);
+      setActiveFile(newFiles[0].name)
     }
-  };
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#1e1e1e', color: '#fff' }}>
       {/* Header */}
-      <header style={{ 
-        display: 'flex', 
-        gap: '10px', 
-        padding: '10px 20px', 
+      <header style={{
+        display: 'flex',
+        gap: '10px',
+        padding: '10px 20px',
         borderBottom: '1px solid #333',
-        alignItems: 'center'
-      }}>
+        alignItems: 'center',
+      }}
+      >
         <h2 style={{ margin: 0, marginRight: '20px', fontSize: '1.2rem' }}>Playground</h2>
         {Object.entries(FRAMEWORKS).map(([key, config]) => (
           <button
@@ -189,7 +203,7 @@ export default function Playground() {
               borderRadius: '4px',
               cursor: 'pointer',
               fontWeight: 'bold',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
             }}
           >
             {config.name}
@@ -202,14 +216,15 @@ export default function Playground() {
         {/* Editor Section */}
         <div style={{ flex: 1, borderRight: '1px solid #333', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {/* File Tabs */}
-          <div style={{ 
-            display: 'flex', 
-            backgroundColor: '#252526', 
+          <div style={{
+            display: 'flex',
+            backgroundColor: '#252526',
             borderBottom: '1px solid #333',
-            overflowX: 'auto'
-          }}>
+            overflowX: 'auto',
+          }}
+          >
             {files.map(file => (
-              <div 
+              <div
                 key={file.name}
                 onClick={() => setActiveFile(file.name)}
                 style={{
@@ -223,28 +238,31 @@ export default function Playground() {
                   alignItems: 'center',
                   fontSize: '0.9rem',
                   userSelect: 'none',
-                  minWidth: 'fit-content'
+                  minWidth: 'fit-content',
                 }}
               >
                 <span>{file.name}</span>
                 {files.length > 1 && (
-                  <span 
-                    onClick={(e) => { e.stopPropagation(); deleteFile(file.name); }}
-                    style={{ 
-                      marginLeft: '8px', 
-                      fontSize: '0.8rem', 
-                      opacity: 0.6,
-                      cursor: 'pointer' 
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deleteFile(file.name)
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+                    style={{
+                      marginLeft: '8px',
+                      fontSize: '0.8rem',
+                      opacity: 0.6,
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '0.6')}
                   >
                     ✕
                   </span>
                 )}
               </div>
             ))}
-            <button 
+            <button
               onClick={addNewFile}
               style={{
                 background: 'none',
@@ -253,7 +271,7 @@ export default function Playground() {
                 cursor: 'pointer',
                 padding: '0 12px',
                 fontSize: '1.2rem',
-                outline: 'none'
+                outline: 'none',
               }}
               title="New File"
             >
@@ -278,5 +296,5 @@ export default function Playground() {
         </div>
       </div>
     </div>
-  );
+  )
 }

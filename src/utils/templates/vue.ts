@@ -1,11 +1,11 @@
-import type { File } from './types';
+import type { File } from './types'
 
-export const VUE_TEMPLATE: { name: string; color: string; cdn: string[]; defaultFiles: File[] } = {
+export const VUE_TEMPLATE: { name: string, color: string, cdn: string[], defaultFiles: File[] } = {
   name: 'Vue',
   color: '#42b883',
   cdn: [
     'https://unpkg.com/vue@3/dist/vue.global.js',
-    'https://unpkg.com/vue3-sfc-loader/dist/vue3-sfc-loader.js'
+    'https://unpkg.com/vue3-sfc-loader/dist/vue3-sfc-loader.js',
   ],
   defaultFiles: [
     {
@@ -22,7 +22,7 @@ const msg = ref('Hello World!')
   <input v-model="msg">
   <Comp />
 </template>`,
-      active: true
+      active: true,
     },
     {
       name: 'Comp.vue',
@@ -39,12 +39,13 @@ const msg = ref('Hello World!')
   margin-top: 10px;
   border-radius: 4px;
 }
-</style>`
-    }
-  ]
-};
+</style>`,
+    },
+  ],
+}
 
-export const generateVueScript = (serializedFiles: string) => `
+export function generateVueScript(serializedFiles: string) {
+  return `
     <script>
       const { loadModule } = window['vue3-sfc-loader'];
       
@@ -97,4 +98,5 @@ export const generateVueScript = (serializedFiles: string) => `
           update(e.data.files);
         }
       });
-    </script>`;
+    </script>`
+}

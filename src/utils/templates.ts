@@ -1,31 +1,31 @@
-import type { Framework, File } from './templates/types';
-import { VUE_TEMPLATE, generateVueScript } from './templates/vue';
-import { SOLID_TEMPLATE, generateSolidScript } from './templates/solid';
-import { REACT_TEMPLATE, generateReactScript } from './templates/react';
-import { SVELTE_TEMPLATE, generateSvelteScript } from './templates/svelte';
+import type { File, Framework } from './templates/types'
+import { generateReactScript, REACT_TEMPLATE } from './templates/react'
+import { generateSolidScript, SOLID_TEMPLATE } from './templates/solid'
+import { generateSvelteScript, SVELTE_TEMPLATE } from './templates/svelte'
+import { generateVueScript, VUE_TEMPLATE } from './templates/vue'
 
-export type { Framework, File };
+export type { File, Framework }
 
-export const FRAMEWORKS: Record<Framework, { name: string; color: string; cdn: string[]; defaultFiles: File[] }> = {
+export const FRAMEWORKS: Record<Framework, { name: string, color: string, cdn: string[], defaultFiles: File[] }> = {
   vue: VUE_TEMPLATE,
   react: REACT_TEMPLATE,
   solid: SOLID_TEMPLATE,
-  svelte: SVELTE_TEMPLATE
-};
+  svelte: SVELTE_TEMPLATE,
+}
 
 export function generateHtml(framework: Framework, files: File[]) {
-  const config = FRAMEWORKS[framework];
-  const cdns = config.cdn.map((url: string) => `<script src="${url}"></script>`).join('\n');
-  
-  let scriptContent = '';
-  let extraSetup = '';
+  const config = FRAMEWORKS[framework]
+  const cdns = config.cdn.map((url: string) => `<script src="${url}"></script>`).join('\n')
+
+  let scriptContent = ''
+  const extraSetup = ''
 
   const filesMap = files.reduce((acc, file) => {
-    acc[file.name] = file.content;
-    return acc;
-  }, {} as Record<string, string>);
+    acc[file.name] = file.content
+    return acc
+  }, {} as Record<string, string>)
 
-  const serializedFiles = JSON.stringify(filesMap).replace(/<\//g, '\\x3C/');
+  const serializedFiles = JSON.stringify(filesMap).replace(/<\//g, '\\x3C/')
 
   const errorHandling = `
     <script>
@@ -45,16 +45,19 @@ export function generateHtml(framework: Framework, files: File[]) {
         console.error(e.reason);
       };
     </script>
-  `;
+  `
 
   if (framework === 'vue') {
-    scriptContent = generateVueScript(serializedFiles);
-  } else if (framework === 'react') {
-    scriptContent = generateReactScript(serializedFiles);
-  } else if (framework === 'solid') {
-    scriptContent = generateSolidScript(serializedFiles);
-  } else if (framework === 'svelte') {
-    scriptContent = generateSvelteScript(serializedFiles);
+    scriptContent = generateVueScript(serializedFiles)
+  }
+  else if (framework === 'react') {
+    scriptContent = generateReactScript(serializedFiles)
+  }
+  else if (framework === 'solid') {
+    scriptContent = generateSolidScript(serializedFiles)
+  }
+  else if (framework === 'svelte') {
+    scriptContent = generateSvelteScript(serializedFiles)
   }
 
   return `
@@ -79,5 +82,5 @@ export function generateHtml(framework: Framework, files: File[]) {
   ${scriptContent}
 </body>
 </html>
-  `;
+  `
 }

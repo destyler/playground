@@ -1,10 +1,10 @@
-import type { File } from './types';
+import type { File } from './types'
 
-export const SOLID_TEMPLATE: { name: string; color: string; cdn: string[]; defaultFiles: File[] } = {
+export const SOLID_TEMPLATE: { name: string, color: string, cdn: string[], defaultFiles: File[] } = {
   name: 'Solid',
   color: '#2c4f7c',
   cdn: [
-    'https://unpkg.com/@babel/standalone/babel.min.js'
+    'https://unpkg.com/@babel/standalone/babel.min.js',
   ],
   defaultFiles: [
     {
@@ -24,7 +24,7 @@ function App() {
 }
 
 render(() => html\`<\${App} />\`, document.getElementById('app'));`,
-      active: true
+      active: true,
     },
     {
       name: 'Counter.tsx',
@@ -38,12 +38,13 @@ export default function Counter() {
       Count is: \${count()}
     </button>
   \`;
-}`
-    }
-  ]
-};
+}`,
+    },
+  ],
+}
 
-export const generateSolidScript = (serializedFiles: string) => `
+export function generateSolidScript(serializedFiles: string) {
+  return `
     <script type="module">
       import * as SolidJS from "https://esm.sh/solid-js@1.8.16";
       import * as SolidWeb from "https://esm.sh/solid-js@1.8.16/web";
@@ -150,4 +151,5 @@ export const generateSolidScript = (serializedFiles: string) => `
       };
       
       if (window.SolidJS) window.startApp();
-    </script>`;
+    </script>`
+}
