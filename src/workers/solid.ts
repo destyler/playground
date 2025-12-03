@@ -1,33 +1,17 @@
+import { solidDtsMap } from '../utils/solid-dts'
+
 export function getSolidMonacoConfig(monaco: any) {
+  const extraLibs: any[] = [];
+  solidDtsMap.forEach((content, filePath) => {
+    extraLibs.push({ content, filePath });
+  });
+
   return {
     compilerOptions: {
       jsx: monaco.languages.typescript.JsxEmit.Preserve,
       jsxImportSource: 'solid-js',
     },
-    extraLibs: [
-      {
-        content: `declare module 'solid-js' {
-          export function createSignal<T>(value: T, options?: { equals?: false | ((prev: T, next: T) => boolean) }): [() => T, (v: T) => T];
-          export function createEffect(fn: (v?: any) => any, value?: any): void;
-          export function createMemo<T>(fn: (v?: any) => T, value?: any, options?: { equals?: false | ((prev: T, next: T) => boolean) }): () => T;
-          export function onMount(fn: () => void): void;
-          export function onCleanup(fn: () => void): void;
-        }
-        declare module 'solid-js/web' {
-          export function render(code: () => any, element: Node): () => void;
-        }
-        declare module 'solid-js/html' {
-          export default function html(statics: TemplateStringsArray, ...args: any[]): any;
-        }
-        declare namespace JSX {
-          interface IntrinsicElements {
-            [elemName: string]: any;
-          }
-        }
-        `,
-        filePath: 'file:///node_modules/solid-js/index.d.ts',
-      },
-    ],
+    extraLibs,
   }
 }
 

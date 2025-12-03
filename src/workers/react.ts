@@ -1,31 +1,17 @@
+import { reactDtsMap } from '../utils/react-dts'
+
 export function getReactMonacoConfig(monaco: any) {
+  const extraLibs: any[] = [];
+  reactDtsMap.forEach((content, filePath) => {
+    extraLibs.push({ content, filePath });
+  });
+
   return {
     compilerOptions: {
-      jsx: monaco.languages.typescript.JsxEmit.React,
-      jsxFactory: 'React.createElement',
-      jsxFragmentFactory: 'React.Fragment',
+      jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
+      jsxImportSource: 'react',
     },
-    extraLibs: [
-      {
-        content: `declare module 'react' {
-          export = React;
-        }
-        declare namespace React {
-          function createElement(type: any, props?: any, ...children: any[]): any;
-          function useState<T>(initialState: T | (() => T)): [T, (newState: T | ((prevState: T) => T)) => void];
-          function useEffect(effect: () => void | (() => void), deps?: any[]): void;
-          function useRef<T>(initialValue: T): { current: T };
-          const Fragment: any;
-        }
-        declare namespace JSX {
-          interface IntrinsicElements {
-            [elemName: string]: any;
-          }
-        }
-        `,
-        filePath: 'file:///node_modules/@types/react/index.d.ts',
-      },
-    ],
+    extraLibs,
   }
 }
 

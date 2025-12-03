@@ -1,9 +1,16 @@
+import { vueDtsMap } from '../utils/vue-dts'
+
 export function getVueMonacoConfig(monaco: any) {
+  const extraLibs: any[] = []
+  vueDtsMap.forEach((content, filePath) => {
+    extraLibs.push({ content, filePath })
+  })
+
   return {
     compilerOptions: {
       jsx: monaco.languages.typescript.JsxEmit.Preserve,
     },
-    extraLibs: [],
+    extraLibs,
   }
 }
 

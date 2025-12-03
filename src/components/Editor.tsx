@@ -1,20 +1,26 @@
 import type { File, Framework } from '../utils/templates'
 import * as monaco from 'monaco-editor'
-import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
+import { conf, language } from 'monaco-editor/esm/vs/basic-languages/html/html.js'
 
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import CSSWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
 import HTMLWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
 import JSONWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import TSWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import React, { useEffect, useRef } from 'react'
+import { setupVolar } from '../utils/monaco-volar'
 import { getReactMonacoConfig } from '../workers/react'
 import { getSolidMonacoConfig } from '../workers/solid'
 import { getSvelteMonacoConfig } from '../workers/svelte'
 import { getVueMonacoConfig } from '../workers/vue'
+import VueWorker from '../workers/vue.worker?worker'
 
 if (typeof window !== 'undefined') {
   globalThis.MonacoEnvironment = {
     getWorker(_: any, label: string) {
+      if (label === 'vue') {
+        return new VueWorker()
+      }
       if (label === 'json') {
         return new JSONWorker()
       }
@@ -43,6 +49,8 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
   const editorContainerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const extraLibsRef = useRef<monaco.IDisposable[]>([])
+  const volarWorkerRef = useRef<monaco.editor.MonacoWebWorker<any> | null>(null)
+  const volarDisposablesRef = useRef<monaco.IDisposable[]>([])
 
   // Configure Monaco for different frameworks
   useEffect(() => {
@@ -91,6 +99,54 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
     })
   }, [activeFramework])
 
+  // Configure Volar for Vue
+  useEffect(() => {
+    let isCancelled = false
+
+    // Clean up previous Volar setup
+    volarWorkerRef.current?.dispose()
+    volarDisposablesRef.current.forEach(d => d.dispose())
+    volarDisposablesRef.current = []
+
+    if (activeFramework === 'vue') {
+      monaco.languages.register({ id: 'vue', extensions: ['.vue'] })
+      monaco.languages.setLanguageConfiguration('vue', conf)
+      monaco.languages.setMonarchTokensProvider('vue', language)
+
+      const worker = monaco.editor.createWebWorker<any>({
+        moduleId: 'vs/language/vue/vueWorker',
+        label: 'vue',
+        keepIdleModels: true,
+      } as any)
+      volarWorkerRef.current = worker
+
+      const languageId = 'vue'
+      const getSyncUris = () => monaco.editor.getModels().map(model => model.uri)
+
+      setupVolar(worker, languageId, getSyncUris, monaco.languages, monaco.editor)
+        .then((disposable) => {
+          if (isCancelled) {
+            disposable.dispose()
+            return
+          }
+          volarDisposablesRef.current.push(disposable)
+        })
+        .catch((err) => {
+          if (!isCancelled) {
+            console.error('Volar setup failed:', err)
+          }
+        })
+    }
+
+    return () => {
+      isCancelled = true
+      volarWorkerRef.current?.dispose()
+      volarWorkerRef.current = null
+      volarDisposablesRef.current.forEach(d => d.dispose())
+      volarDisposablesRef.current = []
+    }
+  }, [activeFramework])
+
   // Sync files to Monaco Models
   useEffect(() => {
     const ts = monaco.typescript
@@ -115,7 +171,10 @@ export default function Editor({ files, activeFile, activeFramework, onFileChang
       // Update language
       const ext = file.name.split('.').pop()
       if (model) {
-        if (ext === 'vue' || ext === 'html' || ext === 'svelte') {
+        if (ext === 'vue') {
+          monaco.editor.setModelLanguage(model, 'vue')
+        }
+        else if (ext === 'html' || ext === 'svelte') {
           monaco.editor.setModelLanguage(model, 'html')
         }
         else if (ext === 'ts' || ext === 'tsx') {
