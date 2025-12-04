@@ -15,8 +15,8 @@ import langTypescript from 'shiki/langs/typescript.mjs'
 import langVue from 'shiki/langs/vue.mjs'
 
 // 导入主题
-import themeDark from 'shiki/themes/dark-plus.mjs'
-import themeLight from 'shiki/themes/light-plus.mjs'
+import themeDark from 'shiki/themes/vitesse-dark.mjs'
+import themeLight from 'shiki/themes/vitesse-light.mjs'
 
 let registered = false
 

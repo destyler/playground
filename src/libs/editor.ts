@@ -18,9 +18,52 @@ let volarWorker: monaco.editor.MonacoWebWorker<WorkerLanguageService> | null = n
 let disposeVolar: (() => void) | undefined
 let editorOpenerDispose: monaco.IDisposable | undefined
 let isEditorInitialized = false
+let themeObserver: MutationObserver | null = null
 
 // Callbacks
 let onFileChangeCallback: ((fileName: string, content: string) => void) | null = null
+
+/**
+ * Get Monaco theme based on current document theme
+ */
+function getMonacoTheme(): string {
+  const isDark = document.documentElement.classList.contains('dark')
+    || document.documentElement.getAttribute('data-theme') === 'dark'
+  return isDark ? 'vitesse-dark' : 'vitesse-light'
+}
+
+/**
+ * Update editor theme based on document theme
+ */
+function updateEditorTheme() {
+  if (editorInstance) {
+    monaco.editor.setTheme(getMonacoTheme())
+  }
+}
+
+/**
+ * Setup theme observer to watch for theme changes
+ */
+function setupThemeObserver() {
+  if (themeObserver) {
+    themeObserver.disconnect()
+  }
+
+  themeObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === 'attributes'
+          && (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
+        updateEditorTheme()
+        break
+      }
+    }
+  })
+
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class', 'data-theme'],
+  })
+}
 
 /**
  * Monaco worker host for handling CDN files
@@ -113,8 +156,8 @@ export function onEditorFileChange(callback: (fileName: string, content: string)
  * Initialize the Monaco editor
  */
 export async function initEditor() {
-  if (isEditorInitialized) 
-return
+  if (isEditorInitialized)
+    return
 
   const container = document.getElementById('editor-container')
   if (!container) {
@@ -124,7 +167,7 @@ return
 
   editorInstance = monaco.editor.create(container, {
     model: null,
-    theme: 'dark-plus',
+    theme: getMonacoTheme(),
     automaticLayout: true,
     minimap: { enabled: false },
     fontSize: 14,
@@ -132,6 +175,9 @@ return
     scrollBeyondLastLine: false,
     fixedOverflowWidgets: true,
   })
+
+  // Setup theme observer to watch for light/dark mode changes
+  setupThemeObserver()
 
   editorInstance.onDidChangeModelContent(() => {
     const model = editorInstance?.getModel()
@@ -177,8 +223,8 @@ export async function setupLanguageService(framework: Framework, clearModels: bo
     monaco.editor.getModels().forEach(model => model.dispose())
   }
 
-  if (!config || !hasLanguageServiceSupport(framework)) 
-return
+  if (!config || !hasLanguageServiceSupport(framework))
+    return
 
   registerLanguages(config)
 
@@ -202,23 +248,23 @@ return
 
   try {
     const { dispose: disposeMarkers } = volar.activateMarkers(
-      worker, 
-config.languageIds, 
-config.type, 
-getSyncUris, 
-monaco.editor,
+      worker,
+      config.languageIds,
+      config.type,
+      getSyncUris,
+      monaco.editor,
     )
     const { dispose: disposeAutoInsertion } = volar.activateAutoInsertion(
-      worker, 
-config.languageIds, 
-getSyncUris, 
-monaco.editor,
+      worker,
+      config.languageIds,
+      getSyncUris,
+      monaco.editor,
     )
     const { dispose: disposeProviders } = await volar.registerProviders(
-      worker, 
-config.languageIds, 
-getSyncUris, 
-monaco.languages,
+      worker,
+      config.languageIds,
+      getSyncUris,
+      monaco.languages,
     )
 
     disposeVolar = () => {
@@ -233,8 +279,8 @@ monaco.languages,
 
   editorOpenerDispose = monaco.editor.registerEditorOpener({
     openCodeEditor(_source, resource) {
-      if (resource.toString().startsWith('file:///node_modules')) 
-return true
+      if (resource.toString().startsWith('file:///node_modules'))
+        return true
 
       const path = resource.path
       if (/^\//.test(path)) {
@@ -263,8 +309,8 @@ export function syncFilesToModels() {
   const config = getFrameworkConfig(state.activeFramework)
   const files = state.files
 
-  if (files.length === 0) 
-return
+  if (files.length === 0)
+    return
 
   if (config && hasLanguageServiceSupport(state.activeFramework)) {
     const tsconfigUri = monaco.Uri.parse('file:///tsconfig.json')
@@ -288,33 +334,33 @@ return
 
     const ext = file.name.split('.').pop()
     let lang = 'plaintext'
-    if (ext === 'vue') 
-lang = 'vue'
-    else if (ext === 'svelte') 
-lang = 'svelte'
-    else if (ext === 'tsx') 
-lang = 'tsx'
-    else if (ext === 'jsx') 
-lang = 'jsx'
-    else if (ext === 'ts') 
-lang = 'typescript'
-    else if (ext === 'js') 
-lang = 'javascript'
-    else if (ext === 'css') 
-lang = 'css'
-    else if (ext === 'html') 
-lang = 'html'
-    else if (ext === 'json') 
-lang = 'json'
+    if (ext === 'vue')
+      lang = 'vue'
+    else if (ext === 'svelte')
+      lang = 'svelte'
+    else if (ext === 'tsx')
+      lang = 'tsx'
+    else if (ext === 'jsx')
+      lang = 'jsx'
+    else if (ext === 'ts')
+      lang = 'typescript'
+    else if (ext === 'js')
+      lang = 'javascript'
+    else if (ext === 'css')
+      lang = 'css'
+    else if (ext === 'html')
+      lang = 'html'
+    else if (ext === 'json')
+      lang = 'json'
 
     if (!model) {
       model = monaco.editor.createModel(file.content, lang, uri)
     }
     else {
-      if (model.getValue() !== file.content) 
-model.setValue(file.content)
-      if (model.getLanguageId() !== lang) 
-monaco.editor.setModelLanguage(model, lang)
+      if (model.getValue() !== file.content)
+        model.setValue(file.content)
+      if (model.getLanguageId() !== lang)
+        monaco.editor.setModelLanguage(model, lang)
     }
   })
 
@@ -323,10 +369,10 @@ monaco.editor.setModelLanguage(model, lang)
   )
   monaco.editor.getModels().forEach((model) => {
     const filePath = model.uri.path.substring(1)
-    if (filePath === 'tsconfig.json' || model.uri.path.includes('node_modules')) 
-return
-    if (!currentFilePaths.includes(filePath)) 
-model.dispose()
+    if (filePath === 'tsconfig.json' || model.uri.path.includes('node_modules'))
+      return
+    if (!currentFilePaths.includes(filePath))
+      model.dispose()
   })
 }
 
@@ -334,8 +380,8 @@ model.dispose()
  * Update the active model in the editor
  */
 export function updateActiveModel() {
-  if (!editorInstance || !state.activeFile) 
-return
+  if (!editorInstance || !state.activeFile)
+    return
 
   const config = getFrameworkConfig(state.activeFramework)
   const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${state.activeFile}` : state.activeFile
