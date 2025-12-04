@@ -1,21 +1,15 @@
 ---
 import Playground from '../components/Playground.astro';
+import '../styles/bootstarp.css';
 ---
 
-<html lang="en">
+<html lang="en" class="theme">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width" />
     <meta name="generator" content={Astro.generator} />
     <title>Destyler Playground</title>
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-      }
-    </style>
   </head>
   <body>
     <Playground />

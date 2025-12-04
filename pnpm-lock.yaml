@@ -69,6 +69,18 @@ importers:
       '@astrojs/vue':
         specifier: ^5.1.3
         version: 5.1.3(@types/node@22.19.1)(astro@5.16.3(@types/node@22.19.1)(jiti@2.6.1)(rollup@4.53.3)(typescript@5.9.3)(yaml@2.8.2))(jiti@2.6.1)(rollup@4.53.3)(vue@3.5.25(typescript@5.9.3))(yaml@2.8.2)
+      '@destyler/select':
+        specifier: ^0.2.0
+        version: 0.2.0
+      '@destyler/vanilla':
+        specifier: ^0.2.0
+        version: 0.2.0
+      '@destyler/vue':
+        specifier: ^0.2.0
+        version: 0.2.0(vue@3.5.25(typescript@5.9.3))
+      '@iconify-json/ph':
+        specifier: ^1.2.2
+        version: 1.2.2
       '@rollup/plugin-replace':
         specifier: ^6.0.3
         version: 6.0.3(rollup@4.53.3)
@@ -429,6 +441,47 @@ packages:
   '@clack/prompts@0.11.0':
     resolution: {integrity: sha512-pMN5FcrEw9hUkZA4f+zLlzivQSeQf5dRGJjSUbvVYDLvpKCdQx5OaknvKzgbtXOizhP+SJJJjqEbOe55uKKfAw==}
 
+  '@destyler/anatomy@0.2.0':
+    resolution: {integrity: sha512-xHVncHx69sZULY7V/f/S3N1IeKMJtcMAHz2E9jBcAIswLtRVvMRfnMkXgUoH6ijxj0mvkC4wau+gKmTZ58MQfg==}
+
+  '@destyler/collection@0.2.0':
+    resolution: {integrity: sha512-ecZ+cdVDG6GBClq3CwD4wcB7PVfvaArdMU5B+fYv7UPkgQi+8YP804ZYSKxgXhtDGZRtmjBwKMH1lsvB4Z8bMg==}
+
+  '@destyler/dismissable@0.2.0':
+    resolution: {integrity: sha512-jWcp3BaP7CRpcAzhB9NilLZDn8rcXS9rpVWiXUhYrrXbm9pfUag3AqlowI+KHwYU58+ao5VWYyVAWNl/SxpDJQ==}
+
+  '@destyler/dom@0.2.0':
+    resolution: {integrity: sha512-oYDj2LyC8s3cApGIu1IXq+rLNeKlm2BXK9jyy/aj8MTOLRMd1/2bz9fzVbenXU2sMRU4G9wCLYFe+NpfgfVEbA==}
+
+  '@destyler/interact-outside@0.2.0':
+    resolution: {integrity: sha512-lpxsXfyUnSkZlw2ntImOwT5vdZKkvSiDk8N8EaDoJvkBmu4spPT3lN3liTqVJnIoLsrIPJjMDAwvWfIe5bJ6Mw==}
+
+  '@destyler/popper@0.2.0':
+    resolution: {integrity: sha512-b1LUoF26kAUiOk8pW1wQXPEmM9Z1mGcT0PSRKubZU1GyO+lDZKsjiyU93aCPVA5Fa8H/U4e50XawByK22LQG/w==}
+
+  '@destyler/select@0.2.0':
+    resolution: {integrity: sha512-Fl4mGtqPVV0yXAa0y4k9H3G6tdNWL5yDREzvcFXbbK5ysYaYYwIGOh1YuNawx2QEY40T/eAuYzHMFj5It/hQqQ==}
+
+  '@destyler/store@0.2.0':
+    resolution: {integrity: sha512-77Cn6go9KyzpRPQReN0rDmRWWNuQTiuDTYG/gWIS06jUH6kddwM2sZz7F4bT/hkbQ1Ebdu75vjtLDMZegouw+A==}
+
+  '@destyler/types@0.2.0':
+    resolution: {integrity: sha512-PXRnDsdxGI8zk2I2zA346n5lUqfC0X48scHMSsyXyuCj+IyuAA/lPPAH+M35JW4AevvlwMUA26DtPVZ9GWlTEw==}
+
+  '@destyler/utils@0.2.0':
+    resolution: {integrity: sha512-R6dIWjUrzg9MAn5IDes+yUQA0PJyrP9VI7M2PGGMiOpIvav3FvfbBUcqWMZrFEjasODCM9gEb15xckQl+hk7vw==}
+
+  '@destyler/vanilla@0.2.0':
+    resolution: {integrity: sha512-TdvBhOL3qlhu+zFfVWwa5MxM4zP+WdCCaV176ax9I61RNA47uNWjGq8vks5Vf4AisUDnZ+1HN77MlX0u6NFMmw==}
+
+  '@destyler/vue@0.2.0':
+    resolution: {integrity: sha512-kUFHpwHqlVypLs57+ccIN9dQaeuZyJFABZIZ/kE1dli3ztln5EzgBKLq6LiZhfAkMa+T35TPIkmCOfpFMUdyvQ==}
+    peerDependencies:
+      vue: '>=3.0.0'
+
+  '@destyler/xstate@0.2.0':
+    resolution: {integrity: sha512-/HX8eFE6H9Y2Jn8DAxdkSeZaocp/mEDr2M8YhVzYCo+W1+4uHJJKrJ/oCc/HYdO3yg73A13W0DA4KuewRydqug==}
+
   '@emmetio/abbreviation@2.3.3':
     resolution: {integrity: sha512-mgv58UrU3rh4YgbE/TzgLQwJ3pFsHHhCLqY20aJq+9comytTXUDNGG/SMtSeMJdkpxgXSXunBGLD8Boka3JyVA==}
 
@@ -679,6 +732,15 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@floating-ui/core@1.7.3':
+    resolution: {integrity: sha512-sGnvb5dmrJaKEZ+LDIpguvdX3bDlEllmv4/ClQ9awcmCZrlx5jQyyMWFM5kBI+EyNOCDDiKk8il0zeuX3Zlg/w==}
+
+  '@floating-ui/dom@1.7.4':
+    resolution: {integrity: sha512-OOchDgh4F2CchOX94cRVqhvy7b3AFb+/rQXyswmzmGakRfkMgoWVjfnLWkRirfLEfuD4ysVW16eXzwt3jHIzKA==}
+
+  '@floating-ui/utils@0.2.10':
+    resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
     engines: {node: '>=18.18.0'}
@@ -694,6 +756,9 @@ packages:
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
+
+  '@iconify-json/ph@1.2.2':
+    resolution: {integrity: sha512-PgkEZNtqa8hBGjHXQa4pMwZa93hmfu8FUSjs/nv4oUU6yLsgv+gh9nu28Kqi8Fz9CCVu4hj1MZs9/60J57IzFw==}
 
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
@@ -2978,6 +3043,9 @@ packages:
   property-information@7.1.0:
     resolution: {integrity: sha512-TwEZ+X+yCJmYfL7TPUOcvBZ4QfoT5YenQiJuX//0th53DE6w0xxLEtfK3iyryQFddXuvkIk51EEgrJQ0WJkOmQ==}
 
+  proxy-compare@3.0.1:
+    resolution: {integrity: sha512-V9plBAt3qjMlS1+nC8771KNf6oJ12gExvaxnNzN/9yVRLdTv/lc+oJlnSzrdYDAvBfTStPCoiaCOTmTs0adv7Q==}
+
   pug-error@2.1.0:
     resolution: {integrity: sha512-lv7sU9e5Jk8IeUheHata6/UThZ7RK2jnaaNztxfPYUY+VxZyk/ePVaNZ/vwmH8WqGvDz3LrNYt/+gA55NDg6Pg==}
 
@@ -4358,6 +4426,76 @@ snapshots:
       picocolors: 1.1.1
       sisteransi: 1.0.5
 
+  '@destyler/anatomy@0.2.0': {}
+
+  '@destyler/collection@0.2.0':
+    dependencies:
+      '@destyler/utils': 0.2.0
+
+  '@destyler/dismissable@0.2.0':
+    dependencies:
+      '@destyler/dom': 0.2.0
+      '@destyler/interact-outside': 0.2.0
+      '@destyler/utils': 0.2.0
+
+  '@destyler/dom@0.2.0':
+    dependencies:
+      '@destyler/types': 0.2.0
+
+  '@destyler/interact-outside@0.2.0':
+    dependencies:
+      '@destyler/dom': 0.2.0
+      '@destyler/utils': 0.2.0
+
+  '@destyler/popper@0.2.0':
+    dependencies:
+      '@destyler/dom': 0.2.0
+      '@destyler/utils': 0.2.0
+      '@floating-ui/dom': 1.7.4
+
+  '@destyler/select@0.2.0':
+    dependencies:
+      '@destyler/anatomy': 0.2.0
+      '@destyler/collection': 0.2.0
+      '@destyler/dismissable': 0.2.0
+      '@destyler/dom': 0.2.0
+      '@destyler/popper': 0.2.0
+      '@destyler/types': 0.2.0
+      '@destyler/utils': 0.2.0
+      '@destyler/xstate': 0.2.0
+
+  '@destyler/store@0.2.0':
+    dependencies:
+      proxy-compare: 3.0.1
+
+  '@destyler/types@0.2.0':
+    dependencies:
+      '@destyler/store': 0.2.0
+      '@destyler/utils': 0.2.0
+      csstype: 3.2.3
+
+  '@destyler/utils@0.2.0': {}
+
+  '@destyler/vanilla@0.2.0':
+    dependencies:
+      '@destyler/store': 0.2.0
+      '@destyler/types': 0.2.0
+      '@destyler/utils': 0.2.0
+      '@destyler/xstate': 0.2.0
+      proxy-compare: 3.0.1
+
+  '@destyler/vue@0.2.0(vue@3.5.25(typescript@5.9.3))':
+    dependencies:
+      '@destyler/store': 0.2.0
+      '@destyler/types': 0.2.0
+      '@destyler/xstate': 0.2.0
+      vue: 3.5.25(typescript@5.9.3)
+
+  '@destyler/xstate@0.2.0':
+    dependencies:
+      '@destyler/store': 0.2.0
+      '@destyler/utils': 0.2.0
+
   '@emmetio/abbreviation@2.3.3':
     dependencies:
       '@emmetio/scanner': 1.0.4
@@ -4554,6 +4692,17 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
+  '@floating-ui/core@1.7.3':
+    dependencies:
+      '@floating-ui/utils': 0.2.10
+
+  '@floating-ui/dom@1.7.4':
+    dependencies:
+      '@floating-ui/core': 1.7.3
+      '@floating-ui/utils': 0.2.10
+
+  '@floating-ui/utils@0.2.10': {}
+
   '@humanfs/core@0.19.1': {}
 
   '@humanfs/node@0.16.7':
@@ -4564,6 +4713,10 @@ snapshots:
   '@humanwhocodes/module-importer@1.0.1': {}
 
   '@humanwhocodes/retry@0.4.3': {}
+
+  '@iconify-json/ph@1.2.2':
+    dependencies:
+      '@iconify/types': 2.0.0
 
   '@iconify/types@2.0.0': {}
 
@@ -7348,6 +7501,8 @@ snapshots:
   property-information@6.5.0: {}
 
   property-information@7.1.0: {}
+
+  proxy-compare@3.0.1: {}
 
   pug-error@2.1.0: {}
 

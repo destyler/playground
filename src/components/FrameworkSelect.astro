@@ -1,0 +1,353 @@
+---
+import { FRAMEWORKS } from '../utils/templates'
+
+const frameworks = Object.entries(FRAMEWORKS).map(([key, config]) => ({
+  value: key,
+  label: config.name,
+  color: config.color,
+}))
+---
+
+<div class="framework-select" data-framework-select>
+  <div data-select-root>
+    <div data-select-control>
+      <button type="button" data-testid="framework:trigger" data-select-trigger>
+        <span class="framework-indicator" data-select-color-indicator></span>
+        <span data-select-value-text>Vue</span>
+        <span aria-hidden="true" data-select-indicator>▼</span>
+      </button>
+    </div>
+    <div data-select-positioner>
+      <ul data-testid="framework:content" data-select-content>
+        {frameworks.map(({ value, label, color }) => (
+          <li data-select-item data-value={value} data-color={color}>
+            <span class="framework-indicator" style={`background-color: ${color};`}></span>
+            <span data-select-item-text>{label}</span>
+            <span data-select-item-indicator>✓</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<style>
+  .framework-select {
+    position: relative;
+  }
+
+  [data-select-control] {
+    display: flex;
+  }
+
+  [data-select-trigger] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.2s;
+    min-width: 120px;
+  }
+
+  [data-select-trigger]:hover {
+    background-color: hsl(var(--accent));
+  }
+
+  [data-select-trigger]:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--ring));
+  }
+
+  [data-select-value-text] {
+    flex: 1;
+    text-align: left;
+  }
+
+  [data-select-indicator] {
+    display: flex;
+    align-items: center;
+    color: hsl(var(--muted-foreground));
+    transition: transform 0.2s;
+  }
+
+  [data-select-trigger][data-state="open"] [data-select-indicator] {
+    transform: rotate(180deg);
+  }
+
+  .framework-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  [data-select-positioner] {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    padding-top: 4px;
+    display: none;
+  }
+
+  [data-select-positioner][data-state="open"] {
+    display: block;
+  }
+
+  [data-select-content] {
+    background-color: hsl(var(--popover));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 4px;
+    min-width: 140px;
+    list-style: none;
+    margin: 0;
+    animation: slideDown 0.15s ease-out;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  [data-select-item] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-radius: calc(var(--radius) - 2px);
+    font-size: 14px;
+    color: hsl(var(--foreground));
+    transition: background-color 0.15s;
+    user-select: none;
+  }
+
+  [data-select-item]:hover,
+  [data-select-item][data-highlighted] {
+    background-color: hsl(var(--accent));
+  }
+
+  [data-select-item][data-state="checked"] {
+    background-color: hsl(var(--accent));
+  }
+
+  [data-select-item-text] {
+    flex: 1;
+  }
+
+  [data-select-item-indicator] {
+    display: flex;
+    align-items: center;
+    color: hsl(var(--primary));
+    opacity: 0;
+  }
+
+  [data-select-item][data-state="checked"] [data-select-item-indicator] {
+    opacity: 1;
+  }
+</style>
+
+<script>
+  import type { Framework } from '../utils/templates'
+  import { Component, normalizeProps, spreadProps } from '@destyler/vanilla'
+  import * as select from '@destyler/select'
+
+  interface FrameworkItem {
+    value: string
+    label: string
+    color: string
+  }
+
+  interface ItemNodes {
+    item: FrameworkItem
+    element: HTMLLIElement
+    textEl: HTMLSpanElement
+    indicatorEl: HTMLSpanElement
+  }
+
+  // Get framework data from DOM
+  function getFrameworkData(): FrameworkItem[] {
+    const items = document.querySelectorAll('[data-select-item]')
+    return Array.from(items).map((el) => ({
+      value: el.getAttribute('data-value') || '',
+      label: el.querySelector('[data-select-item-text]')?.textContent || '',
+      color: el.getAttribute('data-color') || '',
+    }))
+  }
+
+  class FrameworkSelect extends Component<
+    select.Context,
+    select.Api,
+    any,
+    any
+  > {
+    private collection: ReturnType<typeof select.collection>
+    private readonly stateListeners = new Set<(value: Framework) => void>()
+
+    private rootNode: HTMLElement | null = null
+    private controlEl: HTMLElement | null = null
+    private triggerEl: HTMLButtonElement | null = null
+    private valueTextEl: HTMLElement | null = null
+    private colorIndicatorEl: HTMLElement | null = null
+    private indicatorEl: HTMLElement | null = null
+    private positionerEl: HTMLElement | null = null
+    private contentEl: HTMLUListElement | null = null
+    private itemNodes: ItemNodes[] = []
+    private frameworkData: FrameworkItem[] = []
+
+    constructor(rootEl: HTMLElement, context: select.Context, options?: any) {
+      super(rootEl, context, options)
+
+      this.frameworkData = getFrameworkData()
+      this.collection = select.collection({ items: this.frameworkData })
+
+      this.rootNode = this.rootEl.querySelector('[data-select-root]')
+      this.controlEl = this.rootEl.querySelector('[data-select-control]')
+      this.triggerEl = this.rootEl.querySelector('[data-select-trigger]') as HTMLButtonElement | null
+      this.valueTextEl = this.rootEl.querySelector('[data-select-value-text]')
+      this.colorIndicatorEl = this.rootEl.querySelector('[data-select-color-indicator]')
+      this.indicatorEl = this.rootEl.querySelector('[data-select-indicator]')
+      this.positionerEl = this.rootEl.querySelector('[data-select-positioner]')
+      this.contentEl = this.rootEl.querySelector('[data-select-content]') as HTMLUListElement | null
+
+      this.setupItemNodes()
+    }
+
+    initService(context: select.Context) {
+      return select.machine({
+        ...context,
+        collection: this.collection,
+      }) as select.Service
+    }
+
+    initApi() {
+      return select.connect(this.service.state, this.service.send, normalizeProps)
+    }
+
+    onChange(listener: (value: Framework) => void) {
+      this.stateListeners.add(listener)
+      return () => this.stateListeners.delete(listener)
+    }
+
+    private setupItemNodes() {
+      if (!this.contentEl) return
+
+      this.itemNodes = this.frameworkData.map((item) => {
+        const element = this.contentEl!.querySelector(`[data-value="${item.value}"]`) as HTMLLIElement
+        const textEl = element?.querySelector('[data-select-item-text]') as HTMLSpanElement
+        const indicatorEl = element?.querySelector('[data-select-item-indicator]') as HTMLSpanElement
+
+        return { item, element, textEl, indicatorEl }
+      })
+    }
+
+    private renderItems(api: select.Api) {
+      this.itemNodes.forEach(({ item, element, textEl, indicatorEl }) => {
+        if (element) spreadProps(element, api.getItemProps({ item }))
+        if (textEl) spreadProps(textEl, api.getItemTextProps({ item }))
+        if (indicatorEl) spreadProps(indicatorEl, api.getItemIndicatorProps({ item }))
+      })
+    }
+
+    render = () => {
+      const api = this.api
+      const prevValue = this.valueTextEl?.textContent
+
+      if (this.rootNode) spreadProps(this.rootNode, api.getRootProps())
+      if (this.controlEl) spreadProps(this.controlEl, api.getControlProps())
+
+      if (this.triggerEl) {
+        spreadProps(this.triggerEl, api.getTriggerProps())
+      }
+
+      if (this.valueTextEl) {
+        spreadProps(this.valueTextEl, api.getValueTextProps())
+        const displayText = api.valueAsString || 'Vue'
+        this.valueTextEl.textContent = displayText
+
+        // Update color indicator based on selection
+        if (this.colorIndicatorEl) {
+          const selectedItem = this.frameworkData.find(f => f.label === displayText || f.value === api.value[0])
+          if (selectedItem) {
+            this.colorIndicatorEl.style.backgroundColor = selectedItem.color
+          }
+        }
+      }
+
+      if (this.indicatorEl) spreadProps(this.indicatorEl, api.getIndicatorProps())
+      if (this.positionerEl) spreadProps(this.positionerEl, api.getPositionerProps())
+
+      if (this.contentEl) {
+        spreadProps(this.contentEl, api.getContentProps())
+        this.renderItems(api)
+      }
+
+      // Notify listeners when value changes
+      const currentValue = api.value[0] as Framework
+      if (currentValue && prevValue !== api.valueAsString) {
+        this.stateListeners.forEach(listener => listener(currentValue))
+      }
+    }
+
+    getValue(): Framework {
+      return this.api.value[0] as Framework
+    }
+
+    setValue(value: Framework) {
+      this.api.setValue([value])
+    }
+
+    override destroy(): void {
+      this.stateListeners.clear()
+      super.destroy()
+    }
+  }
+
+  // Initialize on DOM ready
+  function initFrameworkSelect() {
+    const selectRoot = document.querySelector('[data-framework-select]') as HTMLElement
+    if (!selectRoot) return
+
+    // Check if already initialized
+    if ((selectRoot as any).__frameworkSelect) return
+
+    // Get framework data for collection
+    const frameworkData = getFrameworkData()
+    const collection = select.collection({ items: frameworkData })
+
+    const instance = new FrameworkSelect(selectRoot, {
+      id: 'framework-select',
+      name: 'framework',
+      value: ['vue'],
+      collection,
+    })
+    instance.init()
+    ;(selectRoot as any).__frameworkSelect = instance
+
+    // Dispatch custom event when value changes
+    instance.onChange((value) => {
+      window.dispatchEvent(new CustomEvent('framework:change', { detail: { framework: value } }))
+    })
+
+    // Expose instance globally for programmatic access
+    ;(window as any).frameworkSelect = instance
+  }
+
+  document.addEventListener('DOMContentLoaded', initFrameworkSelect)
+  document.addEventListener('astro:page-load', initFrameworkSelect)
+</script>

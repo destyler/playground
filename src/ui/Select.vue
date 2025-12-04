@@ -1,0 +1,68 @@
+<script setup lang="ts">
+import * as select from '@destyler/select'
+import { normalizeProps, useMachine } from '@destyler/vue'
+import { computed, useId } from 'vue'
+import { frameworks } from '../libs/state'
+
+const [state, send] = useMachine(
+  select.machine({
+    collection: select.collection({
+      items: frameworks,
+    }),
+    id: useId(),
+    value: [frameworks[0].value],
+    multiple: false,
+    positioning: {
+      offset: {
+        mainAxis: 2,
+        crossAxis: 2,
+      },
+    },
+  }),
+)
+
+const api = computed(() => select.connect(state.value, send, normalizeProps))
+</script>
+
+<template>
+  <div v-bind="api.getRootProps()" class="flex items-center w-28">
+    <div v-bind="api.getControlProps()" class="w-28">
+      <button v-bind="api.getTriggerProps()" class="justify-between flex items-center w-full border border-solid border-border p-1 rounded-md transition-all duration-200 hover:border-accent-foreground/50">
+        <span>{{ api.valueAsString || "Select option" }}</span>
+        <span v-bind="api.getIndicatorProps()" class="i-ph-caret-down-bold size-4 transition-transform duration-200" :class="{ 'rotate-180': api.open }" />
+      </button>
+    </div>
+    <form>
+      <select v-bind="api.getHiddenSelectProps()">
+        <option v-for="option in frameworks" :key="option.value" :value="option.value">
+          {{ option.label }}
+        </option>
+      </select>
+    </form>
+    <Teleport v-if="api.open" to="body">
+      <div v-bind="api.getPositionerProps()" class="bg-popover z-99999! p-1 w-28 shadow-md border border-solid border-border rounded-md">
+        <ul v-bind="api.getContentProps()" class="w-full text-popover-foreground">
+          <li
+            v-for="item in frameworks"
+            :key="item.value"
+            v-bind="api.getItemProps({ item })"
+            class="flex justify-between cursor-pointer mb-2 last:mb-0
+              data-[highlighted]:bg-accent px-2 py-1 rounded-md items-center
+              transition-colors duration-150"
+          >
+            <span
+              v-bind="api.getItemTextProps({ item })"
+              class="text-popover-foreground"
+            >
+              {{ item.label }}
+            </span>
+            <span
+              v-bind="api.getItemIndicatorProps({ item })"
+              class="i-ph-check-bold size-4"
+            />
+          </li>
+        </ul>
+      </div>
+    </Teleport>
+  </div>
+</template>

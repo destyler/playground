@@ -37,48 +37,17 @@ export async function initPlayground() {
     renderFileTabs()
   })
 
+  // Listen for framework change from select component
+  window.addEventListener('framework:change', ((e: CustomEvent<{ framework: Framework }>) => {
+    handleFrameworkChange(e.detail.framework)
+  }) as EventListener)
+
   // Setup UI
-  setupFrameworkButtons()
   renderFileTabs()
   updateIframe()
 
   // Initialize editor
   await initEditor()
-}
-
-/**
- * Setup framework button click handlers
- */
-function setupFrameworkButtons() {
-  const buttons = document.querySelectorAll('.framework-btn')
-
-  buttons.forEach((btn) => {
-    const button = btn as HTMLButtonElement
-    const framework = button.dataset.framework as Framework
-    const color = button.dataset.color as string
-
-    if (framework === state.activeFramework) {
-      button.classList.add('active')
-      button.style.backgroundColor = color
-    }
-
-    button.addEventListener('click', async () => {
-      await handleFrameworkChange(framework)
-
-      buttons.forEach((b) => {
-        const otherBtn = b as HTMLButtonElement
-        const otherFramework = otherBtn.dataset.framework as Framework
-        if (otherFramework === framework) {
-          otherBtn.classList.add('active')
-          otherBtn.style.backgroundColor = color
-        }
-        else {
-          otherBtn.classList.remove('active')
-          otherBtn.style.backgroundColor = '#333'
-        }
-      })
-    })
-  })
 }
 
 /**
@@ -103,7 +72,7 @@ async function handleFrameworkChange(framework: Framework) {
  */
 export function renderFileTabs() {
   const container = document.getElementById('file-tabs')
-  if (!container) 
+  if (!container)
 return
 
   container.innerHTML = ''
@@ -153,7 +122,7 @@ return
  */
 function startRenaming(fileName: string, tabElement: HTMLButtonElement) {
   const nameSpan = tabElement.querySelector('.file-tab-name')
-  if (!nameSpan) 
+  if (!nameSpan)
 return
 
   const input = document.createElement('input')
@@ -161,9 +130,9 @@ return
   input.value = fileName
   input.addEventListener('blur', () => finishRenaming(fileName, input))
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') 
+    if (e.key === 'Enter')
 finishRenaming(fileName, input)
-    else if (e.key === 'Escape') 
+    else if (e.key === 'Escape')
 renderFileTabs()
   })
   input.addEventListener('click', e => e.stopPropagation())
@@ -230,7 +199,7 @@ function addNewFile() {
 
   setTimeout(() => {
     const tab = document.querySelector(`[data-file-name="${name}"]`) as HTMLButtonElement
-    if (tab) 
+    if (tab)
 startRenaming(name, tab)
   }, 0)
 }
@@ -239,7 +208,7 @@ startRenaming(name, tab)
  * Delete a file
  */
 function deleteFile(name: string) {
-  if (state.files.length <= 1) 
+  if (state.files.length <= 1)
 return
 
   state.files = state.files.filter((f: File) => f.name !== name)
@@ -258,7 +227,7 @@ return
  * Schedule iframe update with debounce
  */
 function scheduleIframeUpdate() {
-  if (updateTimer) 
+  if (updateTimer)
 clearTimeout(updateTimer)
   updateTimer = setTimeout(updateIframe, 1000)
 }
@@ -267,7 +236,7 @@ clearTimeout(updateTimer)
  * Update the preview iframe
  */
 function updateIframe() {
-  if (!iframeRef) 
+  if (!iframeRef)
 return
 
   if (previousFramework !== state.activeFramework) {
