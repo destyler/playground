@@ -71,11 +71,6 @@ export function generateHtml(framework: Framework, files: File[]) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview</title>
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 20px; }
-    .container { padding: 20px; border: 1px solid #eee; border-radius: 8px; }
-    button { padding: 8px 16px; cursor: pointer; }
-  </style>
   ${extraSetup}
   ${errorHandling}
   ${cdns}

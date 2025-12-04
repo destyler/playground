@@ -1,0 +1,348 @@
+import type { WorkerLanguageService } from '@volar/monaco/worker'
+import type { FrameworkConfig, WorkerMessage } from '../utils/frameworks'
+import type { File, Framework } from '../utils/templates'
+import * as volar from '@volar/monaco'
+import * as monaco from 'monaco-editor-core'
+import EditorWorker from 'monaco-editor-core/esm/vs/editor/editor.worker?worker'
+import { getFrameworkConfig, hasLanguageServiceSupport } from '../utils/frameworks'
+import { registerHighlighter } from '../utils/highlight'
+import ReactWorker from '../workers/react.worker?worker'
+import SolidWorker from '../workers/solid.worker?worker'
+import SvelteWorker from '../workers/svelte.worker?worker'
+import VueWorker from '../workers/vue.worker?worker'
+import { state } from './state'
+
+// Monaco editor variables
+let editorInstance: monaco.editor.IStandaloneCodeEditor | null = null
+let volarWorker: monaco.editor.MonacoWebWorker<WorkerLanguageService> | null = null
+let disposeVolar: (() => void) | undefined
+let editorOpenerDispose: monaco.IDisposable | undefined
+let isEditorInitialized = false
+
+// Callbacks
+let onFileChangeCallback: ((fileName: string, content: string) => void) | null = null
+
+/**
+ * Monaco worker host for handling CDN files
+ */
+class MonacoWorkerHost {
+  onFetchCdnFile(uri: string, text: string) {
+    const monacoUri = monaco.Uri.parse(uri)
+    if (!monaco.editor.getModel(monacoUri)) {
+      monaco.editor.createModel(text, undefined, monacoUri)
+    }
+  }
+}
+
+/**
+ * Get worker constructor for a framework
+ */
+function getWorkerConstructor(framework: Framework): (new () => Worker) | null {
+  switch (framework) {
+    case 'vue': return VueWorker
+    case 'react': return ReactWorker
+    case 'solid': return SolidWorker
+    case 'svelte': return SvelteWorker
+    default: return null
+  }
+}
+
+/**
+ * Initialize worker for a framework
+ */
+async function initializeWorker(WorkerClass: new () => Worker): Promise<Worker> {
+  const worker = new WorkerClass()
+  return new Promise((resolve) => {
+    worker.addEventListener('message', (data) => {
+      if (data.data === 'inited') {
+        resolve(worker)
+      }
+    })
+    worker.postMessage({
+      event: 'init',
+      tsVersion: 'latest',
+      tsLocale: undefined,
+    } satisfies WorkerMessage)
+  })
+}
+
+/**
+ * Register languages for a framework
+ */
+function registerLanguages(config: FrameworkConfig) {
+  if (config.type === 'vue') {
+    monaco.languages.register({ id: 'vue', extensions: ['.vue'] })
+    monaco.languages.setLanguageConfiguration('vue', config.languageConfiguration)
+  }
+  else if (config.type === 'svelte') {
+    monaco.languages.register({ id: 'svelte', extensions: ['.svelte'] })
+    monaco.languages.setLanguageConfiguration('svelte', config.languageConfiguration)
+  }
+
+  monaco.languages.register({ id: 'javascript', extensions: ['.js'] })
+  monaco.languages.register({ id: 'typescript', extensions: ['.ts'] })
+  monaco.languages.register({ id: 'jsx', extensions: ['.jsx'] })
+  monaco.languages.register({ id: 'tsx', extensions: ['.tsx'] })
+  monaco.languages.register({ id: 'css', extensions: ['.css'] })
+  monaco.languages.register({ id: 'json', extensions: ['.json'] })
+}
+
+// Setup Monaco environment
+if (typeof window !== 'undefined') {
+  registerHighlighter()
+  ;(globalThis as any).MonacoEnvironment = {
+    async getWorker(_: any, label: string) {
+      const framework = label as Framework
+      const WorkerClass = getWorkerConstructor(framework)
+      if (WorkerClass) {
+        return await initializeWorker(WorkerClass)
+      }
+      return new EditorWorker()
+    },
+  }
+}
+
+/**
+ * Set callback for file changes
+ */
+export function onEditorFileChange(callback: (fileName: string, content: string) => void) {
+  onFileChangeCallback = callback
+}
+
+/**
+ * Initialize the Monaco editor
+ */
+export async function initEditor() {
+  if (isEditorInitialized) 
+return
+
+  const container = document.getElementById('editor-container')
+  if (!container) {
+    console.error('[Editor] Container not found')
+    return
+  }
+
+  editorInstance = monaco.editor.create(container, {
+    model: null,
+    theme: 'dark-plus',
+    automaticLayout: true,
+    minimap: { enabled: false },
+    fontSize: 14,
+    padding: { top: 16 },
+    scrollBeyondLastLine: false,
+    fixedOverflowWidgets: true,
+  })
+
+  editorInstance.onDidChangeModelContent(() => {
+    const model = editorInstance?.getModel()
+    if (model) {
+      const newValue = model.getValue()
+      let fileName = model.uri.path.substring(1)
+      const config = getFrameworkConfig(state.activeFramework)
+      if (config?.filePathPrefix && fileName.startsWith(config.filePathPrefix)) {
+        fileName = fileName.substring(config.filePathPrefix.length)
+      }
+
+      const currentFile = state.files.find((f: File) => f.name === fileName)
+      if (currentFile && currentFile.content !== newValue) {
+        state.files = state.files.map((f: File) =>
+          f.name === fileName ? { ...f, content: newValue } : f,
+        )
+        onFileChangeCallback?.(fileName, newValue)
+      }
+    }
+  })
+
+  isEditorInitialized = true
+
+  await setupLanguageService(state.activeFramework)
+  syncFilesToModels()
+  updateActiveModel()
+}
+
+/**
+ * Setup language service for a framework
+ */
+export async function setupLanguageService(framework: Framework, clearModels: boolean = false) {
+  const config = getFrameworkConfig(framework)
+
+  disposeVolar?.()
+  disposeVolar = undefined
+  editorOpenerDispose?.dispose()
+  editorOpenerDispose = undefined
+  volarWorker?.dispose()
+  volarWorker = null
+
+  if (clearModels) {
+    monaco.editor.getModels().forEach(model => model.dispose())
+  }
+
+  if (!config || !hasLanguageServiceSupport(framework)) 
+return
+
+  registerLanguages(config)
+
+  const worker = monaco.editor.createWebWorker<WorkerLanguageService>({
+    moduleId: `vs/language/${config.type}/${config.type}Worker`,
+    label: config.workerLabel,
+    host: new MonacoWorkerHost(),
+    createData: {
+      tsconfig: config.tsconfig,
+      dependencies: config.dependencies,
+    },
+  })
+
+  volarWorker = worker
+
+  const getSyncUris = () => {
+    return monaco.editor.getModels()
+      .filter(model => !model.uri.path.includes('node_modules'))
+      .map(model => model.uri)
+  }
+
+  try {
+    const { dispose: disposeMarkers } = volar.activateMarkers(
+      worker, 
+config.languageIds, 
+config.type, 
+getSyncUris, 
+monaco.editor,
+    )
+    const { dispose: disposeAutoInsertion } = volar.activateAutoInsertion(
+      worker, 
+config.languageIds, 
+getSyncUris, 
+monaco.editor,
+    )
+    const { dispose: disposeProviders } = await volar.registerProviders(
+      worker, 
+config.languageIds, 
+getSyncUris, 
+monaco.languages,
+    )
+
+    disposeVolar = () => {
+      disposeMarkers()
+      disposeAutoInsertion()
+      disposeProviders()
+    }
+  }
+  catch (err) {
+    console.error(`[Editor] Volar setup failed for ${framework}:`, err)
+  }
+
+  editorOpenerDispose = monaco.editor.registerEditorOpener({
+    openCodeEditor(_source, resource) {
+      if (resource.toString().startsWith('file:///node_modules')) 
+return true
+
+      const path = resource.path
+      if (/^\//.test(path)) {
+        let fileName = path.replace('/', '')
+        if (config.filePathPrefix && fileName.startsWith(config.filePathPrefix)) {
+          fileName = fileName.substring(config.filePathPrefix.length)
+        }
+        const fileExists = state.files.some((f: File) => f.name === fileName)
+        if (fileExists && fileName !== state.activeFile) {
+          state.activeFile = fileName
+          updateActiveModel()
+          // Dispatch event for UI update
+          window.dispatchEvent(new CustomEvent('editor:file-selected'))
+          return true
+        }
+      }
+      return false
+    },
+  })
+}
+
+/**
+ * Sync files to Monaco models
+ */
+export function syncFilesToModels() {
+  const config = getFrameworkConfig(state.activeFramework)
+  const files = state.files
+
+  if (files.length === 0) 
+return
+
+  if (config && hasLanguageServiceSupport(state.activeFramework)) {
+    const tsconfigUri = monaco.Uri.parse('file:///tsconfig.json')
+    if (!monaco.editor.getModel(tsconfigUri)) {
+      monaco.editor.createModel(JSON.stringify(config.tsconfig, null, 2), 'json', tsconfigUri)
+    }
+
+    if (config.generateGlobalTypes) {
+      const globalTypesFileName = config.type === 'vue' ? 'vue_3.4_0.d.ts' : `${config.type}-global.d.ts`
+      const globalTypesUri = monaco.Uri.parse(`file:///node_modules/${globalTypesFileName}`)
+      if (!monaco.editor.getModel(globalTypesUri)) {
+        monaco.editor.createModel(config.generateGlobalTypes(), 'typescript', globalTypesUri)
+      }
+    }
+  }
+
+  files.forEach((file: File) => {
+    const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${file.name}` : file.name
+    const uri = monaco.Uri.parse(`file:///${filePath}`)
+    let model = monaco.editor.getModel(uri)
+
+    const ext = file.name.split('.').pop()
+    let lang = 'plaintext'
+    if (ext === 'vue') 
+lang = 'vue'
+    else if (ext === 'svelte') 
+lang = 'svelte'
+    else if (ext === 'tsx') 
+lang = 'tsx'
+    else if (ext === 'jsx') 
+lang = 'jsx'
+    else if (ext === 'ts') 
+lang = 'typescript'
+    else if (ext === 'js') 
+lang = 'javascript'
+    else if (ext === 'css') 
+lang = 'css'
+    else if (ext === 'html') 
+lang = 'html'
+    else if (ext === 'json') 
+lang = 'json'
+
+    if (!model) {
+      model = monaco.editor.createModel(file.content, lang, uri)
+    }
+    else {
+      if (model.getValue() !== file.content) 
+model.setValue(file.content)
+      if (model.getLanguageId() !== lang) 
+monaco.editor.setModelLanguage(model, lang)
+    }
+  })
+
+  const currentFilePaths = files.map((f: File) =>
+    config?.filePathPrefix ? `${config.filePathPrefix}${f.name}` : f.name,
+  )
+  monaco.editor.getModels().forEach((model) => {
+    const filePath = model.uri.path.substring(1)
+    if (filePath === 'tsconfig.json' || model.uri.path.includes('node_modules')) 
+return
+    if (!currentFilePaths.includes(filePath)) 
+model.dispose()
+  })
+}
+
+/**
+ * Update the active model in the editor
+ */
+export function updateActiveModel() {
+  if (!editorInstance || !state.activeFile) 
+return
+
+  const config = getFrameworkConfig(state.activeFramework)
+  const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${state.activeFile}` : state.activeFile
+  const uri = monaco.Uri.parse(`file:///${filePath}`)
+  const model = monaco.editor.getModel(uri)
+
+  if (model && editorInstance.getModel() !== model) {
+    editorInstance.setModel(model)
+  }
+}

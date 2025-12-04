@@ -4,6 +4,7 @@ import Svelte from '@astrojs/svelte'
 import Vue from '@astrojs/vue'
 import replace from '@rollup/plugin-replace'
 import { defineConfig } from 'astro/config'
+import UnoCSS from 'unocss/astro'
 
 export default defineConfig({
   integrations: [
@@ -24,9 +25,9 @@ export default defineConfig({
     Svelte({
       include: ['**/*.svelte'],
     }),
-    // UnoCSS({
-    //   injectReset: true,
-    // }),
+    UnoCSS({
+      injectReset: true,
+    }),
   ],
   vite: {
     resolve: {
