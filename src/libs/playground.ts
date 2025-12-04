@@ -132,7 +132,9 @@ export function renderFileTabs() {
     nameSpan.textContent = file.name
     tab.appendChild(nameSpan)
 
-    if (state.files.length > 1) {
+    // Don't show delete button for App files (main entry file)
+    const isMainFile = file.name.startsWith('App.')
+    if (state.files.length > 1 && !isMainFile) {
       const closeBtn = document.createElement('button')
       closeBtn.className = 'file-tab-close'
       closeBtn.textContent = '✕'
@@ -166,7 +168,10 @@ export function renderFileTabs() {
         clearTimeout(clickTimer)
         clickTimer = null
       }
-      startRenaming(file.name, tab)
+      // Don't allow renaming App files
+      if (!file.name.startsWith('App.')) {
+        startRenaming(file.name, tab)
+      }
     })
 
     container.appendChild(tab)
@@ -184,6 +189,10 @@ export function renderFileTabs() {
  * Start renaming a file
  */
 function startRenaming(fileName: string, tabElement: HTMLButtonElement) {
+  // Don't allow renaming App files
+  if (fileName.startsWith('App.'))
+    return
+
   const nameSpan = tabElement.querySelector('.file-tab-name') as HTMLSpanElement
   if (!nameSpan)
     return
@@ -280,7 +289,8 @@ function addNewFile() {
  * Delete a file
  */
 function deleteFile(name: string) {
-  if (state.files.length <= 1)
+  // Don't allow deleting the main App file
+  if (name.startsWith('App.') || state.files.length <= 1)
     return
 
   state.files = state.files.filter((f: File) => f.name !== name)
