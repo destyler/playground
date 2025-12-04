@@ -30,9 +30,9 @@ export default function Splitter({ children }: SplitterProps) {
       {/* Resize Trigger */}
       <div
         {...api.getResizeTriggerProps({ id: 'editor:preview' })}
-        className="outline-none border-none"
+        className="outline-none border-none cursor-ew-resize"
       >
-        <div className="w-2 h-full outline-none border-none ring-0 bg-background/50 hover:bg-background focus:outline-none" />
+        <div className="w-1 h-full outline-none border-none ring-0 bg-background/50 hover:bg-background focus:outline-none cursor-ew-resize" />
       </div>
 
       {/* Preview Panel */}
