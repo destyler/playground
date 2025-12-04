@@ -1,16 +1,17 @@
 <script setup lang="ts">
+import type { Framework } from '../utils/templates'
 import * as select from '@destyler/select'
 import { normalizeProps, useMachine } from '@destyler/vue'
 import { computed, useId } from 'vue'
-import { frameworks } from '../libs/state'
+import { frameworks, state } from '../libs/state'
 
-const [state, send] = useMachine(
+const [current, send] = useMachine(
   select.machine({
     collection: select.collection({
       items: frameworks,
     }),
     id: useId(),
-    value: [frameworks[0].value],
+    value: [state.activeFramework],
     multiple: false,
     positioning: {
       offset: {
@@ -18,10 +19,19 @@ const [state, send] = useMachine(
         crossAxis: 2,
       },
     },
+    onValueChange(details) {
+      if (details.value[0]) {
+        const framework = details.value[0] as Framework
+        // 触发自定义事件通知 playground 切换框架
+        window.dispatchEvent(new CustomEvent('framework:change', {
+          detail: { framework },
+        }))
+      }
+    },
   }),
 )
 
-const api = computed(() => select.connect(state.value, send, normalizeProps))
+const api = computed(() => select.connect(current.value, send, normalizeProps))
 </script>
 
 <template>
