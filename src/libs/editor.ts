@@ -250,12 +250,37 @@ export async function setupLanguageService(framework: Framework, clearModels: bo
 
   registerLanguages(config)
 
+  // Get custom tsconfig from state if available
+  let tsconfig = config.tsconfig
+  if (state.tsconfigContent) {
+    try {
+      const customTsconfig = JSON.parse(state.tsconfigContent)
+      // Merge custom tsconfig with framework defaults
+      tsconfig = {
+        ...config.tsconfig,
+        compilerOptions: {
+          ...config.tsconfig.compilerOptions,
+          ...customTsconfig.compilerOptions,
+        },
+        ...(config.type === 'vue' && customTsconfig.vueCompilerOptions ? {
+          vueCompilerOptions: {
+            ...config.tsconfig.vueCompilerOptions,
+            ...customTsconfig.vueCompilerOptions,
+          },
+        } : {}),
+      }
+    }
+    catch (e) {
+      console.warn('[Editor] Failed to parse custom tsconfig, using defaults')
+    }
+  }
+
   const worker = monaco.editor.createWebWorker<WorkerLanguageService>({
     moduleId: `vs/language/${config.type}/${config.type}Worker`,
     label: config.workerLabel,
     host: new MonacoWorkerHost(),
     createData: {
-      tsconfig: config.tsconfig,
+      tsconfig,
       dependencies: config.dependencies,
     },
   })
@@ -475,11 +500,19 @@ function getDefaultTsconfig(): object {
  * Initialize config file content in state if not already set
  */
 export function initConfigContent() {
+  console.log('[Editor] initConfigContent called, current state:', {
+    hasTsconfig: !!state.tsconfigContent,
+    hasImportMap: !!state.importMapContent,
+    tsconfigLength: state.tsconfigContent?.length,
+    importMapLength: state.importMapContent?.length,
+  })
   if (!state.tsconfigContent) {
     state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
+    console.log('[Editor] Set default tsconfig')
   }
   if (!state.importMapContent) {
     state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
+    console.log('[Editor] Set default importMap')
   }
 }
 
@@ -487,6 +520,8 @@ export function initConfigContent() {
  * Reset config content when framework changes
  */
 export function resetConfigContent() {
+  console.log('[Editor] resetConfigContent called - resetting tsconfig and importMap!')
+  console.trace('resetConfigContent stack trace')
   state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
   state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
 
@@ -529,10 +564,17 @@ export function setEditorToConfigFile(configFile: typeof TSCONFIG_FILE | typeof 
   const uri = monaco.Uri.parse(`file:///${configFile}`)
   let model = monaco.editor.getModel(uri)
 
+  const content = configFile === TSCONFIG_FILE ? state.tsconfigContent : state.importMapContent
+
   if (!model) {
     // Create the model with content from state
-    const content = configFile === TSCONFIG_FILE ? state.tsconfigContent : state.importMapContent
     model = monaco.editor.createModel(content, 'json', uri)
+  }
+  else {
+    // Update existing model content if different
+    if (model.getValue() !== content) {
+      model.setValue(content)
+    }
   }
 
   editorInstance.setModel(model)
@@ -543,4 +585,29 @@ export function setEditorToConfigFile(configFile: typeof TSCONFIG_FILE | typeof 
  */
 export function setEditorToUserFile() {
   updateActiveModel()
+}
+
+/**
+ * Refresh language service with updated tsconfig
+ * This should be called when tsconfig is modified by the user
+ */
+export async function refreshLanguageService() {
+  // Remember current config file being edited
+  const currentConfigFile = state.activeConfigFile
+
+  // Re-setup language service with the current framework
+  // This will pick up the new tsconfig from state
+  await setupLanguageService(state.activeFramework, false)
+
+  // Re-sync files to ensure models are properly registered
+  syncFilesToModels()
+
+  // If we were editing a config file, stay on it
+  if (currentConfigFile) {
+    setEditorToConfigFile(currentConfigFile)
+  }
+  else {
+    // Update active model
+    updateActiveModel()
+  }
 }

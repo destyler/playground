@@ -7,6 +7,8 @@ import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 export interface UrlState {
   framework: Framework
   files: Record<string, string>
+  tsconfig?: string
+  importMap?: string
 }
 
 /**
@@ -75,11 +77,22 @@ export function recordToFiles(record: Record<string, string>, activeFile?: strin
 /**
  * Update URL hash with current state
  */
-export function updateUrlHash(framework: Framework, files: File[]): void {
+export function updateUrlHash(framework: Framework, files: File[], tsconfig?: string, importMap?: string): void {
   const urlState: UrlState = {
     framework,
     files: filesToRecord(files),
   }
+
+  // Only include config if it's been customized (not default)
+  if (tsconfig) {
+    urlState.tsconfig = tsconfig
+  }
+  if (importMap) {
+    urlState.importMap = importMap
+  }
+
+  console.log('[URL] Saving state:', { framework, hasTsconfig: !!tsconfig, hasImportMap: !!importMap, importMapLength: importMap?.length })
+
   const hash = serializeState(urlState)
   history.replaceState(null, '', hash)
 }
@@ -91,7 +104,9 @@ export function getStateFromUrl(): UrlState | null {
   if (typeof window === 'undefined') {
     return null
   }
-  return deserializeState(window.location.hash)
+  const result = deserializeState(window.location.hash)
+  console.log('[URL] Loaded state from URL:', { framework: result?.framework, hasTsconfig: !!result?.tsconfig, hasImportMap: !!result?.importMap })
+  return result
 }
 
 /**

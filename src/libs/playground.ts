@@ -1,7 +1,7 @@
 import type { File, Framework } from '../utils/templates'
 import { FRAMEWORKS, generateHtml } from '../utils/templates'
 import { getStateFromUrl, recordToFiles, updateUrlHash } from '../utils/url'
-import { disposeOldModel, getImportMap, initConfigContent, initEditor, onEditorConfigChange, onEditorFileChange, resetConfigContent, setEditorToConfigFile, setEditorToUserFile, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
+import { disposeOldModel, getImportMap, initConfigContent, initEditor, onEditorConfigChange, onEditorFileChange, refreshLanguageService, resetConfigContent, setEditorToConfigFile, setEditorToUserFile, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
 import { IMPORT_MAP_FILE, state, TSCONFIG_FILE } from './state'
 
 // Playground variables
@@ -10,6 +10,7 @@ let isIframeLoaded = false
 let previousFramework: Framework = 'vue'
 let updateTimer: ReturnType<typeof setTimeout> | null = null
 let urlUpdateTimer: ReturnType<typeof setTimeout> | null = null
+let tsconfigUpdateTimer: ReturnType<typeof setTimeout> | null = null
 let isRestoringFromUrl = false
 
 /**
@@ -35,6 +36,16 @@ export async function initPlayground() {
     state.activeFramework = framework
     state.files = files.length > 0 ? files : FRAMEWORKS[framework].defaultFiles
     state.activeFile = state.files.find(f => f.active)?.name || state.files[0].name
+
+    // Restore config content if available
+    if (urlState.tsconfig) {
+      state.tsconfigContent = urlState.tsconfig
+      console.log('[Playground] Restored tsconfig from URL')
+    }
+    if (urlState.importMap) {
+      state.importMapContent = urlState.importMap
+      console.log('[Playground] Restored importMap from URL:', urlState.importMap.substring(0, 100))
+    }
 
     // Set flag to prevent handleFrameworkChange from resetting files
     isRestoringFromUrl = true
@@ -70,8 +81,13 @@ export async function initPlayground() {
       // Import map changed - need to reload iframe
       isIframeLoaded = false
       scheduleIframeUpdate()
+      scheduleUrlUpdate()
     }
-    // tsconfig changes affect editor only, no need to reload preview
+    else if (configFile === TSCONFIG_FILE) {
+      // tsconfig changed - schedule language service refresh with debounce
+      scheduleTsconfigUpdate()
+      scheduleUrlUpdate()
+    }
   })
 
   // Initialize config content
@@ -408,8 +424,23 @@ function scheduleUrlUpdate() {
   if (urlUpdateTimer)
     clearTimeout(urlUpdateTimer)
   urlUpdateTimer = setTimeout(() => {
-    updateUrlHash(state.activeFramework, state.files)
+    console.log('[Playground] scheduleUrlUpdate executing, state:', {
+      tsconfigLength: state.tsconfigContent?.length,
+      importMapLength: state.importMapContent?.length,
+    })
+    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent)
   }, 500)
+}
+
+/**
+ * Schedule tsconfig update with debounce
+ */
+function scheduleTsconfigUpdate() {
+  if (tsconfigUpdateTimer)
+    clearTimeout(tsconfigUpdateTimer)
+  tsconfigUpdateTimer = setTimeout(() => {
+    refreshLanguageService()
+  }, 1000)
 }
 
 /**

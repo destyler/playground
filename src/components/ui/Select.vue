@@ -5,6 +5,9 @@ import { normalizeProps, useMachine } from '@destyler/vue'
 import { computed, onMounted, useId } from 'vue'
 import { frameworks, state } from '../../libs/state'
 
+// Flag to prevent triggering framework:change during initialization
+let isInitializing = true
+
 const [current, send] = useMachine(
   select.machine({
     collection: select.collection({
@@ -20,7 +23,7 @@ const [current, send] = useMachine(
       },
     },
     onValueChange(details) {
-      if (details.value[0]) {
+      if (details.value[0] && !isInitializing) {
         const framework = details.value[0] as Framework
         // 触发自定义事件通知 playground 切换框架
         window.dispatchEvent(new CustomEvent('framework:change', {
@@ -39,7 +42,10 @@ onMounted(() => {
   const handleUrlStateRestore = (e: CustomEvent<{ framework: Framework }>) => {
     const framework = e.detail.framework
     if (framework && api.value.value[0] !== framework) {
+      // Set value without triggering framework:change
+      isInitializing = true
       api.value.setValue([framework])
+      isInitializing = false
     }
   }
 
@@ -49,6 +55,11 @@ onMounted(() => {
   if (state.activeFramework && api.value.value[0] !== state.activeFramework) {
     api.value.setValue([state.activeFramework])
   }
+
+  // Mark initialization as complete after a short delay
+  setTimeout(() => {
+    isInitializing = false
+  }, 300)
 })
 </script>
 
