@@ -3,6 +3,9 @@
  *
  * This worker provides TypeScript language service for Svelte files
  * with full type support from CDN.
+ *
+ * Note: We use a simplified Svelte-to-TypeScript conversion since svelte2tsx
+ * depends on Node.js 'path' module which is not available in browser workers.
  */
 import type { CodeInformation, CodeMapping, IScriptSnapshot, LanguagePlugin, VirtualCode } from '@volar/language-core'
 import type { FileStat, FileSystem, LanguageServiceEnvironment } from '@volar/monaco/worker'
@@ -80,111 +83,52 @@ export {};
 
 /**
  * Generate Svelte shims for type definitions
+ * This provides core Svelte types that svelte2tsx needs
  */
 function generateSvelteShims(): string {
   return `
-declare module 'svelte' {
-  export interface ComponentConstructorOptions<Props extends Record<string, any> = Record<string, any>> {
-    target: Element | Document | ShadowRoot;
-    anchor?: Element;
-    props?: Props;
-    context?: Map<any, any>;
-    hydrate?: boolean;
-    intro?: boolean;
-  }
-
-  export class SvelteComponent<Props extends Record<string, any> = any, Events extends Record<string, any> = any, Slots extends Record<string, any> = any> {
-    constructor(options: ComponentConstructorOptions<Props>);
-    $set(props: Partial<Props>): void;
-    $on<K extends Extract<keyof Events, string>>(type: K, callback: (e: Events[K]) => void): () => void;
-    $destroy(): void;
-    [prop: string]: any;
-  }
-
-  export type ComponentType<T extends SvelteComponent = SvelteComponent> = new (options: ComponentConstructorOptions) => T;
-  export type ComponentProps<T extends SvelteComponent> = T extends SvelteComponent<infer P> ? P : never;
-
-  // Svelte 5 Component type
-  export interface Component<Props extends Record<string, any> = {}, Exports extends Record<string, any> = {}, Bindings extends string = string> {
-    (
-      this: void,
-      internals: unknown,
-      props: Props
-    ): {
-      exports: Exports;
-      bindings: Bindings;
-    };
-  }
-
-  export function mount<Props extends Record<string, any>, Exports extends Record<string, any>>(
-    component: Component<Props, Exports> | ComponentType<SvelteComponent<Props>>,
-    options: { target: Element | Document | ShadowRoot; props?: Props; events?: Record<string, (e: any) => void>; context?: Map<any, any>; intro?: boolean }
-  ): Exports;
-
-  export function unmount(component: Record<string, any>): void;
-  export function untrack<T>(fn: () => T): T;
-  export function tick(): Promise<void>;
-  export function flushSync(fn?: () => void): void;
+// Svelte 2 TSX helper types
+declare class __sveltets_1_createSvelte2TsxComponent<Props extends Record<string, any>, Events extends Record<string, any>, Slots extends Record<string, any>> {
+  $$prop_def: Props;
+  $$events_def: Events;
+  $$slot_def: Slots;
+  $on<K extends keyof Events & string>(type: K, callback: (e: Events[K]) => void): () => void;
+  $set(props: Partial<Props>): void;
 }
 
-declare module 'svelte/store' {
-  export interface Readable<T> {
-    subscribe(run: (value: T) => void): () => void;
+declare function __sveltets_2_createSvelte2TsxComponent<Props extends Record<string, any>, Events extends Record<string, any> = {}, Slots extends Record<string, any> = {}>(
+  render: () => { props?: Props; events?: Events; slots?: Slots }
+): new (options: { target: Element; props?: Props }) => { $$prop_def: Props; $$events_def: Events; $$slot_def: Slots; $set(props: Partial<Props>): void };
+
+declare function __sveltets_2_partial<T>(obj: T): Partial<T>;
+declare function __sveltets_2_partial_with_any<T>(obj: T): Partial<T> & Record<string, any>;
+declare function __sveltets_2_with_any<T>(obj: T): T & Record<string, any>;
+declare function __sveltets_2_with_any_event<T>(obj: T): T;
+declare function __sveltets_2_store_get<T>(store: { subscribe: (cb: (value: T) => void) => any }): T;
+declare function __sveltets_2_any(...args: any[]): any;
+declare function __sveltets_2_empty(...args: any[]): {};
+declare function __sveltets_2_union<T>(...args: T[]): T;
+declare function __sveltets_2_invalidate<T>(getValue: () => T): T;
+
+// Svelte 5 specific helpers
+declare function __sveltets_2_snippet<T extends any[]>(fn: (...args: T) => any): { (this: void, ...args: T): any };
+declare function __sveltets_2_ensureSnippet(s: any): any;
+declare function __sveltets_2_isSnippet(s: any): boolean;
+
+// For component props
+declare namespace svelteHTML {
+  interface HTMLAttributes<T> {
+    [key: string]: any;
   }
-  export interface Writable<T> extends Readable<T> {
-    set(value: T): void;
-    update(updater: (value: T) => T): void;
+  interface SVGAttributes<T> {
+    [key: string]: any;
   }
-  export function writable<T>(value: T): Writable<T>;
-  export function readable<T>(value: T, start?: (set: (value: T) => void) => void | (() => void)): Readable<T>;
-  export function derived<T, U>(stores: Readable<T>, fn: (value: T) => U): Readable<U>;
-  export function get<T>(store: Readable<T>): T;
+  interface IntrinsicElements {
+    [key: string]: any;
+  }
 }
 
-declare module 'svelte/transition' {
-  export interface TransitionConfig {
-    delay?: number;
-    duration?: number;
-    easing?: (t: number) => number;
-    css?: (t: number, u: number) => string;
-    tick?: (t: number, u: number) => void;
-  }
-  export function fade(node: Element, params?: { delay?: number; duration?: number; easing?: (t: number) => number }): TransitionConfig;
-  export function fly(node: Element, params?: { delay?: number; duration?: number; easing?: (t: number) => number; x?: number; y?: number; opacity?: number }): TransitionConfig;
-  export function slide(node: Element, params?: { delay?: number; duration?: number; easing?: (t: number) => number; axis?: 'x' | 'y' }): TransitionConfig;
-  export function scale(node: Element, params?: { delay?: number; duration?: number; easing?: (t: number) => number; start?: number; opacity?: number }): TransitionConfig;
-  export function blur(node: Element, params?: { delay?: number; duration?: number; easing?: (t: number) => number; amount?: number | string; opacity?: number }): TransitionConfig;
-  export function draw(node: SVGElement & { getTotalLength(): number }, params?: { delay?: number; duration?: number | ((len: number) => number); easing?: (t: number) => number; speed?: number }): TransitionConfig;
-  export function crossfade(params?: { delay?: number; duration?: number | ((len: number) => number); easing?: (t: number) => number; fallback?: (node: Element, params: any, intro: boolean) => TransitionConfig }): [(node: Element, params: { key: any }) => () => TransitionConfig, (node: Element, params: { key: any }) => () => TransitionConfig];
-}
-
-declare module 'svelte/animate' {
-  export interface AnimationConfig {
-    delay?: number;
-    duration?: number;
-    easing?: (t: number) => number;
-    css?: (t: number, u: number) => string;
-    tick?: (t: number, u: number) => void;
-  }
-  export function flip(node: Element, { from, to }: { from: DOMRect; to: DOMRect }, params?: { delay?: number; duration?: number | ((d: number) => number); easing?: (t: number) => number }): AnimationConfig;
-}
-
-declare module 'svelte/motion' {
-  import type { Readable } from 'svelte/store';
-  export interface Spring<T> extends Readable<T> {
-    set(value: T, opts?: { hard?: boolean; soft?: boolean | number }): Promise<void>;
-    update(fn: (value: T) => T, opts?: { hard?: boolean; soft?: boolean | number }): Promise<void>;
-    precision: number;
-    damping: number;
-    stiffness: number;
-  }
-  export interface Tweened<T> extends Readable<T> {
-    set(value: T, opts?: { delay?: number; duration?: number; easing?: (t: number) => number; interpolate?: (a: T, b: T) => (t: number) => T }): Promise<void>;
-    update(fn: (value: T) => T, opts?: { delay?: number; duration?: number; easing?: (t: number) => number; interpolate?: (a: T, b: T) => (t: number) => T }): Promise<void>;
-  }
-  export function spring<T>(value?: T, opts?: { stiffness?: number; damping?: number; precision?: number }): Spring<T>;
-  export function tweened<T>(value?: T, opts?: { delay?: number; duration?: number; easing?: (t: number) => number; interpolate?: (a: T, b: T) => (t: number) => T }): Tweened<T>;
-}
+export {};
 `
 }
 
@@ -200,7 +144,172 @@ function createSnapshot(content: string): IScriptSnapshot {
 }
 
 /**
- * Create a Svelte language plugin that extracts script content for TypeScript
+ * Convert Svelte code to TypeScript for type checking
+ * This is a simplified version that handles the most common cases
+ */
+function convertSvelteToTs(svelteCode: string, fileName: string): { code: string, scriptStart: number, scriptLength: number } {
+  // Extract script content
+  const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi
+  let scriptContent = ''
+  let scriptStart = 0
+  let scriptLength = 0
+
+  const scriptMatch = scriptRegex.exec(svelteCode)
+  if (scriptMatch) {
+    scriptContent = scriptMatch[1]
+    scriptStart = svelteCode.indexOf(scriptMatch[1])
+    scriptLength = scriptContent.length
+  }
+
+  // Extract template bindings and reactive statements
+  const templateBindings = extractTemplateBindings(svelteCode)
+
+  // Process script content to handle Svelte 5 runes and special syntax
+  const processedScript = processScriptContent(scriptContent)
+
+  const tsCode = `
+// Generated TypeScript from Svelte component: ${fileName}
+// This code is for type checking purposes only
+
+${generateSvelteImports()}
+
+${processedScript}
+
+${templateBindings}
+
+// Component type declaration
+declare const __component: import('svelte').Component<typeof $$props, {}, ''>;
+export default __component;
+
+// Helper for props typing
+declare const $$props: {
+${extractPropsFromScript(scriptContent).map(p => `  ${p.name}${p.required ? '' : '?'}: ${p.type};`).join('\n')}
+};
+`.trim()
+
+  return { code: tsCode, scriptStart, scriptLength }
+}
+
+/**
+ * Generate necessary Svelte imports
+ */
+function generateSvelteImports(): string {
+  return `
+// Svelte core imports
+import type { Snippet } from 'svelte';
+`.trim()
+}
+
+/**
+ * Process script content to handle Svelte-specific syntax
+ */
+function processScriptContent(script: string): string {
+  let processed = script
+
+  // Handle $: reactive statements (Svelte 4 style)
+  processed = processed.replace(/^\s*\$:\s*/gm, '/* $: */ ')
+
+  return processed
+}
+
+/**
+ * Extract template bindings from Svelte markup
+ */
+function extractTemplateBindings(svelteCode: string): string {
+  const bindings: string[] = []
+
+  // Extract {#each} loop variables
+  const eachRegex = /\{#each\s+(\w+)\s+as\s+(\w+)(?:\s*,\s*(\w+))?\}/g
+  let match = eachRegex.exec(svelteCode)
+  while (match !== null) {
+    const [, array, item, index] = match
+    bindings.push(`// Template binding: {#each ${array} as ${item}${index ? `, ${index}` : ''}}`)
+    match = eachRegex.exec(svelteCode)
+  }
+
+  // Extract bind:value and other bindings
+  const bindRegex = /bind:(\w+)(?:=\{(\w+)\})?/g
+  let bindMatch = bindRegex.exec(svelteCode)
+  while (bindMatch !== null) {
+    const [, prop, variable] = bindMatch
+    if (variable) {
+      bindings.push(`// Template binding: bind:${prop}={${variable}}`)
+    }
+    bindMatch = bindRegex.exec(svelteCode)
+  }
+
+  return bindings.length > 0 ? bindings.join('\n') : ''
+}
+
+/**
+ * Extract props from script content
+ */
+function extractPropsFromScript(script: string): Array<{ name: string, type: string, required: boolean }> {
+  const props: Array<{ name: string, type: string, required: boolean }> = []
+
+  // Handle Svelte 5 $props() syntax
+  // let { prop1, prop2 = defaultValue }: { prop1: Type1, prop2?: Type2 } = $props();
+  const propsMatch = script.match(/let\s+\{([^}]+)\}(?:\s*:\s*\{([^}]+)\})?\s*=\s*\$props\(\)/)
+  if (propsMatch) {
+    const [, destructured, typeAnnotation] = propsMatch
+    const propNames = destructured.split(',').map((p) => {
+      const [name] = p.trim().split('=')
+      return {
+        name: name.trim(),
+        hasDefault: p.includes('='),
+      }
+    })
+
+    if (typeAnnotation) {
+      // Parse type annotation
+      const typeProps = typeAnnotation.split(',').map(t => t.trim())
+      for (const typeProp of typeProps) {
+        const typeMatch = typeProp.match(/(\w+)\s*(\?)?:\s*(.+)/)
+        if (typeMatch) {
+          const [, name, optional, type] = typeMatch
+          props.push({
+            name,
+            type: type.trim(),
+            required: !optional,
+          })
+        }
+      }
+    }
+    else {
+      // No type annotation, infer as any
+      for (const { name, hasDefault } of propNames) {
+        if (name) {
+          props.push({
+            name,
+            type: 'any',
+            required: !hasDefault,
+          })
+        }
+      }
+    }
+  }
+
+  // Handle Svelte 4 export let syntax
+  const exportLetRegex = /export\s+let\s+(\w+)\s*(?::\s*([^=;]+))?\s*(?:=\s*([^;]+))?/g
+  let exportMatch = exportLetRegex.exec(script)
+  while (exportMatch !== null) {
+    const [, name, type, defaultValue] = exportMatch
+    // Don't add if already added from $props
+    if (!props.some(p => p.name === name)) {
+      props.push({
+        name,
+        type: type?.trim() || 'any',
+        required: defaultValue === undefined,
+      })
+    }
+    exportMatch = exportLetRegex.exec(script)
+  }
+
+  return props
+}
+
+/**
+ * Create a Svelte language plugin that converts Svelte to TypeScript
  */
 function createSvelteLanguagePlugin(): LanguagePlugin<URI> {
   return {
@@ -223,36 +332,44 @@ function createSvelteLanguagePlugin(): LanguagePlugin<URI> {
         return undefined
       }
 
+      const fileName = uri.path
       const svelteCode = snapshot.getText(0, snapshot.getLength())
 
-      // Extract script content from Svelte file
-      const scriptMatch = svelteCode.match(/<script[^>]*>([\s\S]*?)<\/script>/i)
-      const scriptContent = scriptMatch ? scriptMatch[1] : ''
+      try {
+        const { code: tsCode, scriptStart, scriptLength } = convertSvelteToTs(svelteCode, fileName)
 
-      // Create TypeScript wrapper with proper component typing
-      const tsCode = `
-// Svelte component virtual TypeScript code
-import { type Component } from 'svelte';
+        const mappings: CodeMapping[] = []
 
-${scriptContent}
+        // Create source mappings for the script content
+        if (scriptLength > 0) {
+          // Find where the script content appears in the generated TypeScript
+          const scriptContent = svelteCode.substring(scriptStart, scriptStart + scriptLength)
+          const processedScript = processScriptContent(scriptContent)
+          const generatedScriptStart = tsCode.indexOf(processedScript)
 
-// Export default component type
-declare const __component: Component<{}, {}, ''>;
-export default __component;
-`.trim()
+          if (generatedScriptStart >= 0) {
+            mappings.push({
+              sourceOffsets: [scriptStart],
+              generatedOffsets: [generatedScriptStart],
+              lengths: [scriptLength],
+              data: {
+                verification: true,
+                completion: true,
+                semantic: true,
+                navigation: true,
+                structure: true,
+                format: false,
+              } satisfies CodeInformation,
+            })
+          }
+        }
 
-      const mappings: CodeMapping[] = []
-
-      // Create mapping for the script content if found
-      if (scriptMatch && scriptContent.length > 0) {
-        const scriptStart = svelteCode.indexOf(scriptMatch[1])
-        const generatedStart = tsCode.indexOf(scriptContent)
-
-        if (scriptStart >= 0 && generatedStart >= 0) {
+        // Add a fallback mapping if no script mapping was created
+        if (mappings.length === 0) {
           mappings.push({
-            sourceOffsets: [scriptStart],
-            generatedOffsets: [generatedStart],
-            lengths: [scriptContent.length],
+            sourceOffsets: [0],
+            generatedOffsets: [0],
+            lengths: [Math.min(svelteCode.length, tsCode.length, 1)],
             data: {
               verification: true,
               completion: true,
@@ -263,30 +380,77 @@ export default __component;
             } satisfies CodeInformation,
           })
         }
-      }
 
-      // Add a fallback mapping if no script was found
-      if (mappings.length === 0) {
-        mappings.push({
-          sourceOffsets: [0],
-          generatedOffsets: [0],
-          lengths: [1],
-          data: {
-            verification: false,
-            completion: true,
-            semantic: false,
-            navigation: false,
-            structure: false,
-            format: false,
-          } satisfies CodeInformation,
-        })
+        return {
+          id: 'ts',
+          languageId: 'typescript',
+          snapshot: createSnapshot(tsCode),
+          mappings,
+        }
       }
+      catch (error) {
+        console.warn('[Svelte Worker] Conversion failed:', error)
 
-      return {
-        id: 'ts',
-        languageId: 'typescript',
-        snapshot: createSnapshot(tsCode),
-        mappings,
+        // Fallback: Extract script content directly
+        const scriptMatch = svelteCode.match(/<script[^>]*>([\s\S]*?)<\/script>/i)
+        const scriptContent = scriptMatch ? scriptMatch[1] : ''
+
+        const tsCode = `
+// Svelte component fallback TypeScript code
+import type { Component } from 'svelte';
+
+${scriptContent}
+
+// Export default component type
+declare const __component: Component<{}, {}, ''>;
+export default __component;
+`.trim()
+
+        const mappings: CodeMapping[] = []
+
+        if (scriptMatch && scriptContent.length > 0) {
+          const scriptStart = svelteCode.indexOf(scriptMatch[1])
+          const generatedStart = tsCode.indexOf(scriptContent)
+
+          if (scriptStart >= 0 && generatedStart >= 0) {
+            mappings.push({
+              sourceOffsets: [scriptStart],
+              generatedOffsets: [generatedStart],
+              lengths: [scriptContent.length],
+              data: {
+                verification: true,
+                completion: true,
+                semantic: true,
+                navigation: true,
+                structure: true,
+                format: false,
+              } satisfies CodeInformation,
+            })
+          }
+        }
+
+        if (mappings.length === 0) {
+          mappings.push({
+            sourceOffsets: [0],
+            generatedOffsets: [0],
+            lengths: [1],
+            data: {
+              verification: false,
+              completion: true,
+              semantic: false,
+              navigation: false,
+              structure: false,
+              format: false,
+            } satisfies CodeInformation,
+          })
+        }
+
+        return {
+          id: 'ts',
+          languageId: 'typescript',
+          snapshot: createSnapshot(tsCode),
+          mappings,
+        }
       }
     },
   }
