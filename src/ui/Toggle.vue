@@ -46,7 +46,7 @@ onUnmounted(() => {
 
 <template>
   <button
-    class="text-primary px-1.5 py-px ml-1 flex items-center cursor-pointer bg-transparent m-0 border-[none] [outline:none]"
+    class="text-primary px-1.5 py-px ml-1 flex items-center cursor-pointer bg-transparent m-0 border-[none] [outline:none] op-60 hover:op-100"
     aria-label="Toggle theme"
     @click="toggleTheme"
   >
