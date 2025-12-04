@@ -6,6 +6,7 @@ import ThemeSelect from '../ui/Select.vue'
 import GitHub from '../ui/GitHub.astro'
 import Sharable from '../ui/Sharable.astro'
 import Reset from '../ui/Reset.astro'
+import Splitter from '../ui/Splitter.tsx'
 import '../styles/tab.css'
 ---
 
@@ -30,9 +31,9 @@ import '../styles/tab.css'
   </nav>
 
   <!-- Main Content -->
-  <div class="flex flex-1 overflow-hidden">
+  <Splitter client:only="react">
     <!-- Editor Section -->
-    <div class="flex border-r border-r-solid border-r-border flex-1 flex-col min-w-0">
+    <div data-panel="editor" class="flex border-r border-r-solid border-r-border flex-1 flex-col min-w-0 h-full">
       <!-- File Tabs -->
       <div class="flex bg-background border-b border-b-solid border-b-border overflow-x-auto" id="file-tabs" />
 
@@ -41,20 +42,42 @@ import '../styles/tab.css'
     </div>
 
     <!-- Preview -->
-    <div class="flex bg-white">
-      <iframe
-        id="preview-iframe"
-        title="preview"
-        class="size-full border-none"
-        sandbox="allow-scripts allow-same-origin allow-modals"
-      />
-    </div>
-  </div>
+    <iframe
+      data-panel="preview"
+      id="preview-iframe"
+      title="preview"
+      class="size-full border-none bg-white"
+      sandbox="allow-scripts allow-same-origin allow-modals"
+    />
+  </Splitter>
 </div>
 
 <script>
   import { initPlayground } from '../libs/playground'
 
-  document.addEventListener('DOMContentLoaded', initPlayground)
-  document.addEventListener('astro:page-load', initPlayground)
+  function initSplitterContent() {
+    // Move content from hidden container to panels
+    const editorContent = document.querySelector('[data-panel="editor"]')
+    const previewContent = document.querySelector('[data-panel="preview"]')
+    const editorPanel = document.getElementById('editor-panel')
+    const previewPanel = document.getElementById('preview-panel')
+
+    if (editorContent && editorPanel) {
+      editorPanel.appendChild(editorContent)
+    }
+    if (previewContent && previewPanel) {
+      previewPanel.appendChild(previewContent)
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initPlayground()
+    // Wait for React to render
+    setTimeout(initSplitterContent, 100)
+  })
+
+  document.addEventListener('astro:page-load', () => {
+    initPlayground()
+    setTimeout(initSplitterContent, 100)
+  })
 </script>
