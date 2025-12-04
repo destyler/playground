@@ -119,6 +119,9 @@ export function generateSvelteScript(serializedFiles: string) {
         }
 
         async function update(files) {
+          // Clear any previous errors
+          if (window.__clearError__) window.__clearError__();
+
           if (files) window.__FILES__ = files;
 
           if (app) {
@@ -160,7 +163,10 @@ export function generateSvelteScript(serializedFiles: string) {
                  window.__COMPILED_FILES__[name + '_code'] = cjsOutput;
                } catch (e) {
                  console.error('Error compiling ' + name, e);
-                 throw e;
+                 if (window.__showError__) {
+                   window.__showError__('Compilation error in ' + name + ': ' + e.message, e.stack);
+                 }
+                 return;
                }
              } else if (name.endsWith('.ts')) {
                // TypeScript files - first strip types, then transform to CJS
@@ -177,7 +183,10 @@ export function generateSvelteScript(serializedFiles: string) {
                  window.__COMPILED_FILES__[name + '_code'] = output;
                } catch (e) {
                  console.error('Error compiling ' + name, e);
-                 throw e;
+                 if (window.__showError__) {
+                   window.__showError__('Compilation error in ' + name + ': ' + e.message, e.stack);
+                 }
+                 return;
                }
              } else {
                // JS files
@@ -189,7 +198,10 @@ export function generateSvelteScript(serializedFiles: string) {
                  window.__COMPILED_FILES__[name + '_code'] = output;
                } catch (e) {
                  console.error('Error compiling ' + name, e);
-                 throw e;
+                 if (window.__showError__) {
+                   window.__showError__('Compilation error in ' + name + ': ' + e.message, e.stack);
+                 }
+                 return;
                }
              }
           }
@@ -206,7 +218,9 @@ export function generateSvelteScript(serializedFiles: string) {
             }
           } catch (e) {
             console.error('Runtime error', e);
-            throw e;
+            if (window.__showError__) {
+              window.__showError__('Runtime error: ' + e.message, e.stack);
+            }
           }
         }
 

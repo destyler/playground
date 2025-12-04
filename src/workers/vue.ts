@@ -27,6 +27,9 @@ export function generateVueScript(serializedFiles: string) {
       let currentApp = null;
 
       async function update(newFiles) {
+        // Clear any previous errors
+        if (window.__clearError__) window.__clearError__();
+
         if (newFiles) {
           Object.assign(files, newFiles);
           // Clear module cache to force reload
@@ -56,7 +59,9 @@ export function generateVueScript(serializedFiles: string) {
           currentApp.mount('#app');
         } catch (e) {
           console.error('Error loading Vue app:', e);
-          appEl.innerHTML = '<pre style="color:red">' + e.message + '</pre>';
+          if (window.__showError__) {
+            window.__showError__('Vue Error: ' + e.message, e.stack);
+          }
         }
       }
 

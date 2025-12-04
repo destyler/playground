@@ -33,19 +33,47 @@ export function generateHtml(framework: Framework, files: File[]) {
 
   const errorHandling = `
     <script>
+      // Error overlay container
+      window.__errorOverlay__ = null;
+
+      function showError(message, stack) {
+        // Create or reuse error overlay
+        if (!window.__errorOverlay__) {
+          window.__errorOverlay__ = document.createElement('div');
+          window.__errorOverlay__.id = '__error_overlay__';
+          window.__errorOverlay__.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:16px 20px;background:#fef0f0;color:#f56c6c;z-index:9999;border-bottom:2px solid #f56c6c;font-family:monospace;font-size:14px;white-space:pre-wrap;max-height:50vh;overflow:auto;';
+          document.body.appendChild(window.__errorOverlay__);
+        }
+        window.__errorOverlay__.textContent = message + (stack ? '\\n\\n' + stack : '');
+        window.__errorOverlay__.style.display = 'block';
+      }
+
+      function clearError() {
+        if (window.__errorOverlay__) {
+          window.__errorOverlay__.style.display = 'none';
+          window.__errorOverlay__.textContent = '';
+        }
+      }
+
+      // Expose functions globally so update functions can call them
+      window.__clearError__ = clearError;
+      window.__showError__ = showError;
+
       window.onerror = function(msg, url, line, col, error) {
-        const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:20px;background:#fff0f0;color:red;z-index:9999;border-bottom:1px solid red;font-family:monospace;';
-        el.textContent = 'Error: ' + msg + '\\n' + (error ? error.stack : '');
-        document.body.appendChild(el);
+        showError('Error: ' + msg, error ? error.stack : '');
         console.error(error || msg);
         return false;
       };
+
       window.onunhandledrejection = function(e) {
-        const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:20px;background:#fff0f0;color:red;z-index:9999;border-bottom:1px solid red;font-family:monospace;';
-        el.textContent = 'Async Error: ' + e.reason;
-        document.body.appendChild(el);
+        let message = 'Async Error: ';
+        if (e.reason instanceof Error) {
+          message += e.reason.message;
+          showError(message, e.reason.stack);
+        } else {
+          message += String(e.reason);
+          showError(message);
+        }
         console.error(e.reason);
       };
     </script>
