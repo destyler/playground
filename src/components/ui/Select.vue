@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Framework } from '../utils/templates'
+import type { Framework } from '../../utils/templates'
 import * as select from '@destyler/select'
 import { normalizeProps, useMachine } from '@destyler/vue'
 import { computed, useId } from 'vue'
-import { frameworks, state } from '../libs/state'
+import { frameworks, state } from '../../libs/state'
 
 const [current, send] = useMachine(
   select.machine({

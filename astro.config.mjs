@@ -9,10 +9,16 @@ import UnoCSS from 'unocss/astro'
 export default defineConfig({
   integrations: [
     Vue({
-      include: ['**/*.vue'],
+      include: [
+        '**/*.vue',
+        '**/*/*.vue',
+      ],
     }),
     React({
-      include: ['**/*.react.tsx'],
+      include: [
+        '**/*.tsx',
+        '**/*/*.tsx',
+      ],
       experimentalReactChildren: true,
     }),
     Solid({
@@ -23,7 +29,10 @@ export default defineConfig({
       ],
     }),
     Svelte({
-      include: ['**/*.svelte'],
+      include: [
+        '**/*.svelte',
+        '**/*/*.svelte',
+      ],
     }),
     UnoCSS({
       injectReset: true,
