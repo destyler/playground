@@ -1,5 +1,6 @@
 import type { File, Framework } from '../utils/templates'
 import { FRAMEWORKS, generateHtml } from '../utils/templates'
+import { getStateFromUrl, recordToFiles, updateUrlHash } from '../utils/url'
 import { disposeOldModel, initEditor, onEditorFileChange, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
 import { state } from './state'
 
@@ -8,6 +9,8 @@ let iframeRef: HTMLIFrameElement | null = null
 let isIframeLoaded = false
 let previousFramework: Framework = 'vue'
 let updateTimer: ReturnType<typeof setTimeout> | null = null
+let urlUpdateTimer: ReturnType<typeof setTimeout> | null = null
+let isRestoringFromUrl = false
 
 /**
  * Initialize the playground
@@ -21,15 +24,44 @@ export async function initPlayground() {
     return
   }
 
-  // Set initial state
-  state.activeFramework = 'vue'
-  state.files = FRAMEWORKS.vue.defaultFiles
-  state.activeFile = FRAMEWORKS.vue.defaultFiles.find(f => f.active)?.name || FRAMEWORKS.vue.defaultFiles[0].name
+  // Try to load state from URL first
+  const urlState = getStateFromUrl()
+
+  if (urlState) {
+    // Restore state from URL
+    const framework = urlState.framework
+    const files = recordToFiles(urlState.files)
+
+    state.activeFramework = framework
+    state.files = files.length > 0 ? files : FRAMEWORKS[framework].defaultFiles
+    state.activeFile = state.files.find(f => f.active)?.name || state.files[0].name
+
+    // Set flag to prevent handleFrameworkChange from resetting files
+    isRestoringFromUrl = true
+
+    // Notify Select component about the framework change
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('url:framework-restored', {
+        detail: { framework },
+      }))
+      // Reset flag after a short delay to allow Select to update
+      setTimeout(() => {
+        isRestoringFromUrl = false
+      }, 200)
+    }, 100)
+  }
+  else {
+    // Set default state
+    state.activeFramework = 'vue'
+    state.files = FRAMEWORKS.vue.defaultFiles
+    state.activeFile = FRAMEWORKS.vue.defaultFiles.find(f => f.active)?.name || FRAMEWORKS.vue.defaultFiles[0].name
+  }
 
   // Setup callbacks
   onEditorFileChange(() => {
     renderFileTabs()
     scheduleIframeUpdate()
+    scheduleUrlUpdate()
   })
 
   // Listen for file selection from editor (go to definition)
@@ -46,14 +78,26 @@ export async function initPlayground() {
   renderFileTabs()
   updateIframe()
 
-  // Initialize editor
+  // Initialize editor with correct framework
   await initEditor()
+
+  // If we have URL state with a specific framework, setup language service for it
+  if (urlState && urlState.framework !== 'vue') {
+    await setupLanguageService(urlState.framework, true)
+    syncFilesToModels()
+    updateActiveModel()
+  }
 }
 
 /**
  * Handle framework change
  */
 async function handleFrameworkChange(framework: Framework) {
+  // Skip if we're restoring from URL (files are already set)
+  if (isRestoringFromUrl) {
+    return
+  }
+
   state.activeFramework = framework
   state.files = FRAMEWORKS[framework].defaultFiles
   state.activeFile = state.files.find(f => f.active)?.name || state.files[0].name
@@ -65,6 +109,7 @@ async function handleFrameworkChange(framework: Framework) {
 
   isIframeLoaded = false
   updateIframe()
+  scheduleUrlUpdate()
 }
 
 /**
@@ -196,6 +241,7 @@ function finishRenaming(oldName: string, input: HTMLInputElement) {
   updateActiveModel()
   renderFileTabs()
   scheduleIframeUpdate()
+  scheduleUrlUpdate()
 }
 
 /**
@@ -221,6 +267,7 @@ function addNewFile() {
   updateActiveModel()
   renderFileTabs()
   scheduleIframeUpdate()
+  scheduleUrlUpdate()
 
   setTimeout(() => {
     const tab = document.querySelector(`[data-file-name="${name}"]`) as HTMLButtonElement
@@ -246,6 +293,7 @@ function deleteFile(name: string) {
   updateActiveModel()
   renderFileTabs()
   scheduleIframeUpdate()
+  scheduleUrlUpdate()
 }
 
 /**
@@ -255,6 +303,17 @@ function scheduleIframeUpdate() {
   if (updateTimer)
     clearTimeout(updateTimer)
   updateTimer = setTimeout(updateIframe, 1000)
+}
+
+/**
+ * Schedule URL update with debounce
+ */
+function scheduleUrlUpdate() {
+  if (urlUpdateTimer)
+    clearTimeout(urlUpdateTimer)
+  urlUpdateTimer = setTimeout(() => {
+    updateUrlHash(state.activeFramework, state.files)
+  }, 500)
 }
 
 /**

@@ -2,7 +2,7 @@
 import type { Framework } from '../../utils/templates'
 import * as select from '@destyler/select'
 import { normalizeProps, useMachine } from '@destyler/vue'
-import { computed, useId } from 'vue'
+import { computed, onMounted, useId } from 'vue'
 import { frameworks, state } from '../../libs/state'
 
 const [current, send] = useMachine(
@@ -32,6 +32,24 @@ const [current, send] = useMachine(
 )
 
 const api = computed(() => select.connect(current.value, send, normalizeProps))
+
+// Expose setValue method for external access (e.g., when restoring from URL)
+onMounted(() => {
+  // Watch for framework changes from URL restoration
+  const handleUrlStateRestore = (e: CustomEvent<{ framework: Framework }>) => {
+    const framework = e.detail.framework
+    if (framework && api.value.value[0] !== framework) {
+      api.value.setValue([framework])
+    }
+  }
+
+  window.addEventListener('url:framework-restored', handleUrlStateRestore as EventListener)
+
+  // Sync initial value from state (in case URL was loaded before component mounted)
+  if (state.activeFramework && api.value.value[0] !== state.activeFramework) {
+    api.value.setValue([state.activeFramework])
+  }
+})
 </script>
 
 <template>
