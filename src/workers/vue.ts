@@ -14,6 +14,7 @@ export function generateVueScript(serializedFiles: string) {
         },
         addStyle(textContent) {
           const style = Object.assign(document.createElement('style'), { textContent });
+          style.setAttribute('data-vue', '');
           document.head.appendChild(style);
         },
         log(type, ...args) {
@@ -23,12 +24,26 @@ export function generateVueScript(serializedFiles: string) {
 
       const { loadModule } = window['vue3-sfc-loader'];
 
+      let currentApp = null;
+
       async function update(newFiles) {
         if (newFiles) {
           Object.assign(files, newFiles);
+          // Clear module cache to force reload
+          options.moduleCache = { vue: Vue };
         }
 
-        // Clear existing app
+        // Properly unmount existing app
+        if (currentApp) {
+          try {
+            currentApp.unmount();
+          } catch (e) {
+            // Ignore unmount errors
+          }
+          currentApp = null;
+        }
+
+        // Clear existing app element and recreate it
         const appEl = document.getElementById('app');
         appEl.innerHTML = '';
 
@@ -37,7 +52,8 @@ export function generateVueScript(serializedFiles: string) {
 
         try {
           const App = await loadModule('./App.vue', options);
-          Vue.createApp(App).mount('#app');
+          currentApp = Vue.createApp(App);
+          currentApp.mount('#app');
         } catch (e) {
           console.error('Error loading Vue app:', e);
           appEl.innerHTML = '<pre style="color:red">' + e.message + '</pre>';

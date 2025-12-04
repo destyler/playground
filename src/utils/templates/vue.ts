@@ -18,9 +18,11 @@ const msg = ref<string>('Hello World!')
 </script>
 
 <template>
-  <h1>{{ msg }}</h1>
-  <input v-model="msg">
-  <Comp />
+  <div>
+    <h1>{{ msg }}</h1>
+    <input v-model="msg">
+    <Comp />
+  </div>
 </template>`,
       active: true,
     },
