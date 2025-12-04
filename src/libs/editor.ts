@@ -10,7 +10,7 @@ import ReactWorker from '../workers/react.worker?worker'
 import SolidWorker from '../workers/solid.worker?worker'
 import SvelteWorker from '../workers/svelte.worker?worker'
 import VueWorker from '../workers/vue.worker?worker'
-import { state } from './state'
+import { IMPORT_MAP_FILE, state, TSCONFIG_FILE } from './state'
 
 // Monaco editor variables
 let editorInstance: monaco.editor.IStandaloneCodeEditor | null = null
@@ -22,6 +22,7 @@ let themeObserver: MutationObserver | null = null
 
 // Callbacks
 let onFileChangeCallback: ((fileName: string, content: string) => void) | null = null
+let onConfigChangeCallback: ((configFile: string, content: string) => void) | null = null
 
 /**
  * Get Monaco theme based on current document theme
@@ -153,6 +154,13 @@ export function onEditorFileChange(callback: (fileName: string, content: string)
 }
 
 /**
+ * Set callback for config file changes
+ */
+export function onEditorConfigChange(callback: (configFile: string, content: string) => void) {
+  onConfigChangeCallback = callback
+}
+
+/**
  * Initialize the Monaco editor
  */
 export async function initEditor() {
@@ -184,6 +192,20 @@ export async function initEditor() {
     if (model) {
       const newValue = model.getValue()
       let fileName = model.uri.path.substring(1)
+
+      // Check if this is a config file
+      if (fileName === TSCONFIG_FILE || fileName === IMPORT_MAP_FILE) {
+        if (fileName === TSCONFIG_FILE && state.tsconfigContent !== newValue) {
+          state.tsconfigContent = newValue
+          onConfigChangeCallback?.(fileName, newValue)
+        }
+        else if (fileName === IMPORT_MAP_FILE && state.importMapContent !== newValue) {
+          state.importMapContent = newValue
+          onConfigChangeCallback?.(fileName, newValue)
+        }
+        return
+      }
+
       const config = getFrameworkConfig(state.activeFramework)
       if (config?.filePathPrefix && fileName.startsWith(config.filePathPrefix)) {
         fileName = fileName.substring(config.filePathPrefix.length)
@@ -409,4 +431,116 @@ export function disposeOldModel(fileName: string) {
     }
     model.dispose()
   }
+}
+
+/**
+ * Get default import map for the current framework
+ */
+function getDefaultImportMap(): object {
+  const config = getFrameworkConfig(state.activeFramework)
+  if (!config)
+    return { imports: {} }
+
+  // Generate import map based on framework dependencies
+  const imports: Record<string, string> = {}
+
+  if (config.type === 'vue') {
+    imports.vue = 'https://esm.sh/vue@3'
+  }
+  else if (config.type === 'react') {
+    imports.react = 'https://esm.sh/react@18'
+    imports['react-dom'] = 'https://esm.sh/react-dom@18'
+    imports['react-dom/client'] = 'https://esm.sh/react-dom@18/client'
+  }
+  else if (config.type === 'solid') {
+    imports['solid-js'] = 'https://esm.sh/solid-js@1'
+    imports['solid-js/web'] = 'https://esm.sh/solid-js@1/web'
+  }
+  else if (config.type === 'svelte') {
+    imports.svelte = 'https://esm.sh/svelte@5'
+  }
+
+  return { imports }
+}
+
+/**
+ * Get default tsconfig for the current framework
+ */
+function getDefaultTsconfig(): object {
+  const config = getFrameworkConfig(state.activeFramework)
+  return config?.tsconfig || {}
+}
+
+/**
+ * Initialize config file content in state if not already set
+ */
+export function initConfigContent() {
+  if (!state.tsconfigContent) {
+    state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
+  }
+  if (!state.importMapContent) {
+    state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
+  }
+}
+
+/**
+ * Reset config content when framework changes
+ */
+export function resetConfigContent() {
+  state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
+  state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
+
+  // Update existing models if they exist
+  const tsconfigUri = monaco.Uri.parse(`file:///${TSCONFIG_FILE}`)
+  const tsconfigModel = monaco.editor.getModel(tsconfigUri)
+  if (tsconfigModel) {
+    tsconfigModel.setValue(state.tsconfigContent)
+  }
+
+  const importMapUri = monaco.Uri.parse(`file:///${IMPORT_MAP_FILE}`)
+  const importMapModel = monaco.editor.getModel(importMapUri)
+  if (importMapModel) {
+    importMapModel.setValue(state.importMapContent)
+  }
+}
+
+/**
+ * Get current import map from state
+ */
+export function getImportMap(): object {
+  try {
+    return JSON.parse(state.importMapContent || '{}')
+  }
+  catch {
+    return getDefaultImportMap()
+  }
+}
+
+/**
+ * Set editor to show a config file (tsconfig.json or import-map.json)
+ */
+export function setEditorToConfigFile(configFile: typeof TSCONFIG_FILE | typeof IMPORT_MAP_FILE) {
+  if (!editorInstance)
+    return
+
+  // Initialize config content if needed
+  initConfigContent()
+
+  const uri = monaco.Uri.parse(`file:///${configFile}`)
+  let model = monaco.editor.getModel(uri)
+
+  if (!model) {
+    // Create the model with content from state
+    const content = configFile === TSCONFIG_FILE ? state.tsconfigContent : state.importMapContent
+    model = monaco.editor.createModel(content, 'json', uri)
+  }
+
+  editorInstance.setModel(model)
+}
+
+/**
+ * Set editor back to showing a user file
+ */
+export function setEditorToUserFile() {
+  updateActiveModel()
 }

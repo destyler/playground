@@ -1,8 +1,8 @@
 import type { File, Framework } from '../utils/templates'
 import { FRAMEWORKS, generateHtml } from '../utils/templates'
 import { getStateFromUrl, recordToFiles, updateUrlHash } from '../utils/url'
-import { disposeOldModel, initEditor, onEditorFileChange, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
-import { state } from './state'
+import { disposeOldModel, getImportMap, initConfigContent, initEditor, onEditorConfigChange, onEditorFileChange, resetConfigContent, setEditorToConfigFile, setEditorToUserFile, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
+import { IMPORT_MAP_FILE, state, TSCONFIG_FILE } from './state'
 
 // Playground variables
 let iframeRef: HTMLIFrameElement | null = null
@@ -64,6 +64,19 @@ export async function initPlayground() {
     scheduleUrlUpdate()
   })
 
+  // Setup config file change callback
+  onEditorConfigChange((configFile, _content) => {
+    if (configFile === IMPORT_MAP_FILE) {
+      // Import map changed - need to reload iframe
+      isIframeLoaded = false
+      scheduleIframeUpdate()
+    }
+    // tsconfig changes affect editor only, no need to reload preview
+  })
+
+  // Initialize config content
+  initConfigContent()
+
   // Listen for file selection from editor (go to definition)
   window.addEventListener('editor:file-selected', () => {
     renderFileTabs()
@@ -76,6 +89,7 @@ export async function initPlayground() {
 
   // Setup UI
   renderFileTabs()
+  setupConfigButtons()
   updateIframe()
 
   // Initialize editor with correct framework
@@ -101,11 +115,16 @@ async function handleFrameworkChange(framework: Framework) {
   state.activeFramework = framework
   state.files = FRAMEWORKS[framework].defaultFiles
   state.activeFile = state.files.find(f => f.active)?.name || state.files[0].name
+  state.activeConfigFile = null
+
+  // Reset config content for new framework
+  resetConfigContent()
 
   await setupLanguageService(framework, true)
   syncFilesToModels()
   updateActiveModel()
   renderFileTabs()
+  updateConfigButtonStates()
 
   isIframeLoaded = false
   updateIframe()
@@ -124,7 +143,9 @@ export function renderFileTabs() {
 
   state.files.forEach((file: File) => {
     const tab = document.createElement('button')
-    tab.className = `file-tab${state.activeFile === file.name ? ' active' : ''}`
+    // When config file is active, no user file tab should be active
+    const isActive = state.activeConfigFile === null && state.activeFile === file.name
+    tab.className = `file-tab${isActive ? ' active' : ''}`
     tab.dataset.fileName = file.name
 
     const nameSpan = document.createElement('span')
@@ -155,9 +176,19 @@ export function renderFileTabs() {
       }
       clickTimer = setTimeout(() => {
         clickTimer = null
+        // Clear config file selection when clicking user file
+        if (state.activeConfigFile !== null) {
+          state.activeConfigFile = null
+          updateConfigButtonStates()
+        }
         if (state.activeFile !== file.name) {
           state.activeFile = file.name
-          updateActiveModel()
+          setEditorToUserFile()
+          renderFileTabs()
+        }
+        else if (state.activeConfigFile === null) {
+          // Re-render to ensure user file tab is active
+          setEditorToUserFile()
           renderFileTabs()
         }
       }, 200)
@@ -183,6 +214,61 @@ export function renderFileTabs() {
   addBtn.title = 'New File'
   addBtn.addEventListener('click', addNewFile)
   container.appendChild(addBtn)
+}
+
+/**
+ * Setup config buttons (tsconfig.json and import-map.json)
+ */
+function setupConfigButtons() {
+  const tsconfigBtn = document.getElementById('tsconfig-btn')
+  const importMapBtn = document.getElementById('import-map-btn')
+
+  if (tsconfigBtn) {
+    tsconfigBtn.addEventListener('click', () => {
+      if (state.activeConfigFile === TSCONFIG_FILE) {
+        // Toggle off - go back to user file
+        state.activeConfigFile = null
+        setEditorToUserFile()
+      }
+      else {
+        state.activeConfigFile = TSCONFIG_FILE
+        setEditorToConfigFile(TSCONFIG_FILE)
+      }
+      updateConfigButtonStates()
+      renderFileTabs()
+    })
+  }
+
+  if (importMapBtn) {
+    importMapBtn.addEventListener('click', () => {
+      if (state.activeConfigFile === IMPORT_MAP_FILE) {
+        // Toggle off - go back to user file
+        state.activeConfigFile = null
+        setEditorToUserFile()
+      }
+      else {
+        state.activeConfigFile = IMPORT_MAP_FILE
+        setEditorToConfigFile(IMPORT_MAP_FILE)
+      }
+      updateConfigButtonStates()
+      renderFileTabs()
+    })
+  }
+}
+
+/**
+ * Update config button active states
+ */
+function updateConfigButtonStates() {
+  const tsconfigBtn = document.getElementById('tsconfig-btn')
+  const importMapBtn = document.getElementById('import-map-btn')
+
+  if (tsconfigBtn) {
+    tsconfigBtn.classList.toggle('active', state.activeConfigFile === TSCONFIG_FILE)
+  }
+  if (importMapBtn) {
+    importMapBtn.classList.toggle('active', state.activeConfigFile === IMPORT_MAP_FILE)
+  }
 }
 
 /**
@@ -347,7 +433,8 @@ function updateIframe() {
     iframeRef.contentWindow?.postMessage({ type: 'UPDATE_FILES', files: filesMap }, '*')
   }
   else {
-    iframeRef.srcdoc = generateHtml(state.activeFramework, state.files)
+    const importMap = getImportMap()
+    iframeRef.srcdoc = generateHtml(state.activeFramework, state.files, importMap)
     setTimeout(() => { isIframeLoaded = true }, 500)
   }
 }

@@ -35,7 +35,17 @@ import '../styles/tab.css'
     <!-- Editor Section -->
     <div data-panel="editor" class="flex border-r border-r-solid border-r-border flex-1 flex-col min-w-0 h-full">
       <!-- File Tabs -->
-      <div class="flex bg-background border-b border-b-solid border-b-border overflow-x-auto" id="file-tabs" />
+      <div class="flex bg-background border-b border-b-solid border-b-border">
+        <div class="flex overflow-x-auto flex-1" id="file-tabs" />
+        <div class="flex items-center border-l border-l-solid border-l-border ml-auto" id="config-tabs">
+          <button class="config-tab" id="import-map-btn" title="Import Map">
+            <span class="i-ph-package-light text-base" />
+          </button>
+          <button class="config-tab" id="tsconfig-btn" title="tsconfig.json">
+            <span class="i-ph-file-ts-light text-base" />
+          </button>
+        </div>
+      </div>
 
       <!-- Monaco Editor -->
       <Editor />

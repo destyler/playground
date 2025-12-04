@@ -17,12 +17,58 @@ export const FRAMEWORKS: Record<Framework, { name: string, color: string, cdn: s
   svelte: SVELTE_TEMPLATE,
 }
 
-export function generateHtml(framework: Framework, files: File[]) {
+export function generateHtml(framework: Framework, files: File[], importMap?: object) {
   const config = FRAMEWORKS[framework]
-  const cdns = config.cdn.map((url: string) => `<script src="${url}"></script>`).join('\n')
+
+  // Parse import map to potentially override CDN versions
+  let cdns = config.cdn.slice() // Clone the array
+  const imports = (importMap as any)?.imports || {}
+
+  // Extract version helper
+  function extractVersion(url: string): string | null {
+    const match = url.match(/@(\d+(?:\.\d+)?(?:\.\d+)?)/)
+    return match ? match[1] : null
+  }
+
+  // For Vue, check if version is overridden in import map
+  if (framework === 'vue' && imports.vue) {
+    const version = extractVersion(imports.vue)
+    if (version) {
+      cdns = [
+        `https://unpkg.com/vue@${version}/dist/vue.global.js`,
+        'https://unpkg.com/vue3-sfc-loader/dist/vue3-sfc-loader.js',
+      ]
+    }
+  }
+
+  // For React, check if version is overridden in import map
+  let reactVersion: string | null = null
+  if (framework === 'react' && imports.react) {
+    reactVersion = extractVersion(imports.react)
+    if (reactVersion) {
+      const majorVersion = Number.parseInt(reactVersion.split('.')[0], 10)
+      // React 19+ uses ESM, so we don't need UMD CDNs
+      if (majorVersion >= 19) {
+        cdns = [] // ESM will be loaded in the script
+      }
+      else {
+        cdns = [
+          `https://unpkg.com/react@${reactVersion}/umd/react.development.js`,
+          `https://unpkg.com/react-dom@${reactVersion}/umd/react-dom.development.js`,
+          'https://unpkg.com/@babel/standalone/babel.min.js',
+        ]
+      }
+    }
+  }
+
+  const cdnScripts = cdns.map((url: string) => `<script src="${url}"></script>`).join('\n')
 
   let scriptContent = ''
-  const extraSetup = ''
+
+  // Generate import map script if provided
+  const importMapScript = importMap
+    ? `<script type="importmap">${JSON.stringify(importMap)}</script>`
+    : ''
 
   const filesMap = files.reduce((acc, file) => {
     acc[file.name] = file.content
@@ -83,13 +129,15 @@ export function generateHtml(framework: Framework, files: File[]) {
     scriptContent = generateVueScript(serializedFiles)
   }
   else if (framework === 'react') {
-    scriptContent = generateReactScript(serializedFiles)
+    scriptContent = generateReactScript(serializedFiles, reactVersion || undefined)
   }
   else if (framework === 'solid') {
-    scriptContent = generateSolidScript(serializedFiles)
+    const solidVersion = imports['solid-js'] ? extractVersion(imports['solid-js']) : null
+    scriptContent = generateSolidScript(serializedFiles, solidVersion || undefined)
   }
   else if (framework === 'svelte') {
-    scriptContent = generateSvelteScript(serializedFiles)
+    const svelteVersion = imports.svelte ? extractVersion(imports.svelte) : null
+    scriptContent = generateSvelteScript(serializedFiles, svelteVersion || undefined)
   }
 
   return `
@@ -99,9 +147,9 @@ export function generateHtml(framework: Framework, files: File[]) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview</title>
-  ${extraSetup}
+  ${importMapScript}
   ${errorHandling}
-  ${cdns}
+  ${cdnScripts}
 </head>
 <body>
   <div id="root"></div>
