@@ -341,3 +341,11 @@ function updateIframe() {
     setTimeout(() => { isIframeLoaded = true }, 500)
   }
 }
+
+/**
+ * Force refresh the preview iframe
+ */
+export function refreshPreview() {
+  isIframeLoaded = false
+  updateIframe()
+}

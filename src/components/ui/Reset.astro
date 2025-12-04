@@ -4,13 +4,15 @@
 <button
   id="reset-btn"
   class="text-primary px-1.5 py-px ml-1 flex items-center cursor-pointer bg-transparent m-0 border-[none] [outline:none] op-60 hover:op-100"
-  aria-label="Reset playground"
-  title="Reset to default"
+  aria-label="Refresh preview"
+  title="Refresh preview"
 >
   <div class="i-ph-arrows-counter-clockwise-light" id="reset-icon" />
 </button>
 
 <script>
+  import { refreshPreview } from '../../libs/playground'
+
   function initResetButton() {
     const resetBtn = document.getElementById('reset-btn')
     const resetIcon = document.getElementById('reset-icon')
@@ -24,9 +26,15 @@
     ;(resetBtn as any).__initialized = true
 
     resetBtn.addEventListener('click', () => {
-      // Clear URL hash and reload
-      history.replaceState(null, '', window.location.pathname)
-      window.location.reload()
+      // Refresh the preview iframe
+      refreshPreview()
+
+      // Show feedback animation
+      resetIcon.style.transition = 'transform 0.5s ease'
+      resetIcon.style.transform = 'rotate(-360deg)'
+      setTimeout(() => {
+        resetIcon.style.transform = ''
+      }, 500)
     })
   }
 
