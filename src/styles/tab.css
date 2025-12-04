@@ -1,0 +1,32 @@
+.file-tab {
+  --at-apply: px-3 py-2 cursor-pointer bg-transparent text-primary/70 border-none border-r border-r-solid border-r-border border-t-2 border-t-solid border-t-transparent flex items-center text-xs select-none min-w-fit;
+}
+
+.file-tab:hover {
+  --at-apply: text-primary;
+}
+
+.file-tab.active {
+  --at-apply: bg-background text-primary border-t-primary;
+}
+
+.file-tab-input {
+  --at-apply: bg-transparent text-primary border-none p-0 text-xs outline-none;
+  font-family: inherit;
+}
+
+.file-tab-close {
+  --at-apply: ml-2 text-[0.8rem] opacity-60 cursor-pointer bg-none border-none text-inherit p-0;
+}
+
+.file-tab-close:hover {
+  --at-apply: opacity-100;
+}
+
+.add-file-btn {
+  --at-apply: bg-none border-none text-primary/70 cursor-pointer px-3 py-0 text-[1.2rem] outline-none;
+}
+
+.add-file-btn:hover {
+  --at-apply: text-primary;
+}

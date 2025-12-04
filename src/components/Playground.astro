@@ -6,6 +6,7 @@ import ThemeSelect from '../ui/Select.vue'
 import GitHub from '../ui/GitHub.astro'
 import Sharable from '../ui/Sharable.astro'
 import Reset from '../ui/Reset.astro'
+import '../styles/tab.css'
 ---
 
 <div class="flex flex-col h-100vh bg-background text-primary" id="playground">
@@ -50,73 +51,6 @@ import Reset from '../ui/Reset.astro'
     </div>
   </div>
 </div>
-
-<style>
-  :global(.file-tab) {
-    padding: 8px 12px;
-    cursor: pointer;
-    background-color: transparent;
-    color: #999;
-    border: none;
-    border-right: 1px solid #333;
-    border-top: 2px solid transparent;
-    display: flex;
-    align-items: center;
-    font-size: 0.9rem;
-    user-select: none;
-    min-width: fit-content;
-  }
-
-  :global(.file-tab:hover) {
-    color: #ccc;
-  }
-
-  :global(.file-tab.active) {
-    background-color: #1e1e1e;
-    color: #fff;
-    border-top-color: #42b883;
-  }
-
-  :global(.file-tab-input) {
-    background-color: #333;
-    color: #fff;
-    border: 1px solid #555;
-    border-radius: 2px;
-    padding: 2px 4px;
-    font-size: 0.9rem;
-    outline: none;
-    width: 100px;
-  }
-
-  :global(.file-tab-close) {
-    margin-left: 8px;
-    font-size: 0.8rem;
-    opacity: 0.6;
-    cursor: pointer;
-    background: none;
-    border: none;
-    color: inherit;
-    padding: 0;
-  }
-
-  :global(.file-tab-close:hover) {
-    opacity: 1;
-  }
-
-  :global(.add-file-btn) {
-    background: none;
-    border: none;
-    color: #999;
-    cursor: pointer;
-    padding: 0 12px;
-    font-size: 1.2rem;
-    outline: none;
-  }
-
-  :global(.add-file-btn:hover) {
-    color: #fff;
-  }
-</style>
 
 <script>
   import { initPlayground } from '../libs/playground'

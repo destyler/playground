@@ -392,3 +392,21 @@ export function updateActiveModel() {
     editorInstance.setModel(model)
   }
 }
+
+/**
+ * Dispose old model by file name (used when renaming files)
+ */
+export function disposeOldModel(fileName: string) {
+  const config = getFrameworkConfig(state.activeFramework)
+  const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${fileName}` : fileName
+  const uri = monaco.Uri.parse(`file:///${filePath}`)
+  const model = monaco.editor.getModel(uri)
+
+  if (model) {
+    // If the editor is currently showing this model, set to null first
+    if (editorInstance?.getModel() === model) {
+      editorInstance.setModel(null)
+    }
+    model.dispose()
+  }
+}

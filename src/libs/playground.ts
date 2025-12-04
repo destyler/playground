@@ -1,6 +1,6 @@
 import type { File, Framework } from '../utils/templates'
 import { FRAMEWORKS, generateHtml } from '../utils/templates'
-import { initEditor, onEditorFileChange, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
+import { disposeOldModel, initEditor, onEditorFileChange, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
 import { state } from './state'
 
 // Playground variables
@@ -73,7 +73,7 @@ async function handleFrameworkChange(framework: Framework) {
 export function renderFileTabs() {
   const container = document.getElementById('file-tabs')
   if (!container)
-return
+    return
 
   container.innerHTML = ''
 
@@ -98,13 +98,31 @@ return
       tab.appendChild(closeBtn)
     }
 
+    // 使用防抖处理点击，避免干扰双击事件
+    let clickTimer: ReturnType<typeof setTimeout> | null = null
     tab.addEventListener('click', () => {
-      state.activeFile = file.name
-      updateActiveModel()
-      renderFileTabs()
+      if (clickTimer) {
+        clearTimeout(clickTimer)
+        clickTimer = null
+        return
+      }
+      clickTimer = setTimeout(() => {
+        clickTimer = null
+        if (state.activeFile !== file.name) {
+          state.activeFile = file.name
+          updateActiveModel()
+          renderFileTabs()
+        }
+      }, 200)
     })
 
-    tab.addEventListener('dblclick', () => startRenaming(file.name, tab))
+    tab.addEventListener('dblclick', () => {
+      if (clickTimer) {
+        clearTimeout(clickTimer)
+        clickTimer = null
+      }
+      startRenaming(file.name, tab)
+    })
 
     container.appendChild(tab)
   })
@@ -121,19 +139,23 @@ return
  * Start renaming a file
  */
 function startRenaming(fileName: string, tabElement: HTMLButtonElement) {
-  const nameSpan = tabElement.querySelector('.file-tab-name')
+  const nameSpan = tabElement.querySelector('.file-tab-name') as HTMLSpanElement
   if (!nameSpan)
-return
+    return
+
+  // 获取原 span 的宽度
+  const spanWidth = nameSpan.offsetWidth
 
   const input = document.createElement('input')
   input.className = 'file-tab-input'
   input.value = fileName
+  input.style.width = `${spanWidth}px`
   input.addEventListener('blur', () => finishRenaming(fileName, input))
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter')
-finishRenaming(fileName, input)
+      finishRenaming(fileName, input)
     else if (e.key === 'Escape')
-renderFileTabs()
+      renderFileTabs()
   })
   input.addEventListener('click', e => e.stopPropagation())
 
@@ -159,6 +181,9 @@ function finishRenaming(oldName: string, input: HTMLInputElement) {
     return
   }
 
+  // 先删除旧模型，再更新文件名
+  disposeOldModel(oldName)
+
   state.files = state.files.map((f: File) =>
     f.name === oldName ? { ...f, name: newName } : f,
   )
@@ -179,7 +204,7 @@ function finishRenaming(oldName: string, input: HTMLInputElement) {
 function addNewFile() {
   const baseName = 'Component'
   const extension = state.activeFramework === 'vue'
-? '.vue'
+    ? '.vue'
     : state.activeFramework === 'svelte' ? '.svelte' : '.tsx'
   let name = `${baseName}${extension}`
   let count = 1
@@ -200,7 +225,7 @@ function addNewFile() {
   setTimeout(() => {
     const tab = document.querySelector(`[data-file-name="${name}"]`) as HTMLButtonElement
     if (tab)
-startRenaming(name, tab)
+      startRenaming(name, tab)
   }, 0)
 }
 
@@ -209,7 +234,7 @@ startRenaming(name, tab)
  */
 function deleteFile(name: string) {
   if (state.files.length <= 1)
-return
+    return
 
   state.files = state.files.filter((f: File) => f.name !== name)
 
@@ -224,20 +249,20 @@ return
 }
 
 /**
- * Schedule iframe update with debounce
+ * Schedule iframe update with de    bounce
  */
 function scheduleIframeUpdate() {
   if (updateTimer)
-clearTimeout(updateTimer)
+    clearTimeout(updateTimer)
   updateTimer = setTimeout(updateIframe, 1000)
 }
 
 /**
- * Update the preview iframe
+ * Update the     preview iframe
  */
 function updateIframe() {
   if (!iframeRef)
-return
+    return
 
   if (previousFramework !== state.activeFramework) {
     isIframeLoaded = false
