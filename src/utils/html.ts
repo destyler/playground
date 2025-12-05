@@ -1,5 +1,6 @@
 import type { File, Framework } from '../templates'
 import type { ImportMap, UserImportMap } from '../templates/types'
+import { getAllDestylerImports } from '../libs/destyler-deps'
 import { generateReactScript } from '../preview/react'
 import { generateSolidScript } from '../preview/solid'
 import { generateSvelteScript } from '../preview/svelte'
@@ -231,6 +232,7 @@ function createUnoUpdateScript(): string {
  * @param files - Array of files to include
  * @param userImportMap - Optional user-defined import map with direct imports
  * @param unoCSS - Optional UnoCSS generated CSS
+ * @param destylerVersion - Optional destyler package version (defaults to 'latest')
  * @returns Complete HTML string
  */
 export function generateHtml(
@@ -238,9 +240,14 @@ export function generateHtml(
   files: File[],
   userImportMap?: UserImportMap,
   unoCSS?: string,
+  destylerVersion: string = 'latest',
 ): string {
   const coreImports = CORE_IMPORTS[framework]
-  const finalImportMap = mergeImportMaps(coreImports, userImportMap)
+  // Get all destyler imports based on framework and version
+  const destylerImports = getAllDestylerImports(destylerVersion, framework)
+  // Merge core, destyler, and user imports
+  const mergedCoreImports = { ...coreImports, ...destylerImports }
+  const finalImportMap = mergeImportMaps(mergedCoreImports, userImportMap)
   const importMapScript = `<script type="importmap">${JSON.stringify(finalImportMap)}</script>`
 
   const serializedFiles = serializeFilesToMap(files)

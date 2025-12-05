@@ -226,6 +226,8 @@ function setupEventListeners(): void {
   // Listen for version change from version select component
   window.addEventListener('destyler:version-change', ((e: CustomEvent<{ version: string }>) => {
     state.destylerVersion = e.detail.version
+    // Version change requires full iframe reload to update import map
+    isIframeLoaded = false
     scheduleUrlUpdate()
     scheduleIframeUpdate()
   }) as EventListener)
@@ -696,7 +698,13 @@ async function updateIframe(): Promise<void> {
   else {
     // Full reload: regenerate HTML with UnoCSS included
     const importMap = getImportMap()
-    iframeRef.srcdoc = generateHtml(state.activeFramework, state.files, importMap, state.generatedUnoCSS)
+    iframeRef.srcdoc = generateHtml(
+      state.activeFramework,
+      state.files,
+      importMap,
+      state.generatedUnoCSS,
+      state.destylerVersion,
+    )
     setTimeout(() => {
       isIframeLoaded = true
     }, DEBOUNCE_DELAYS.IFRAME_LOAD)
