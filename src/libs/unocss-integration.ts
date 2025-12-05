@@ -39,6 +39,8 @@ let underlineDecorationCollection: string[] = []
 let iconDecorationCollection: string[] = []
 let currentEditor: monaco.editor.IStandaloneCodeEditor | null = null
 let themeObserver: MutationObserver | null = null
+let cursorPositionDispose: monaco.IDisposable | null = null
+let currentCursorLine: number = -1
 
 // Cache for CSS results to improve performance
 const cssCache = new Map<string, string>()
@@ -1063,66 +1065,86 @@ async function updateUnderlineDecorations(editor: monaco.editor.IStandaloneCodeE
 }
 
 /**
- * Gets or creates a CSS class for an icon with inline SVG background
+ * Processes SVG data URL for display - handles theme colors
+ * Following vscode-iconify's approach: only replace currentColor, preserve native colors
  */
-function getOrCreateIconClass(className: string, svgDataUrl: string): string {
-  const safeClassName = `uno-icon-${className.replace(/[^a-z0-9]/gi, '-')}`
-
-  // Check if style already exists
-  if (document.getElementById(`icon-style-${safeClassName}`)) {
-    return safeClassName
-  }
-
-  // Convert the data URL to a proper format for CSS background
-  // UnoCSS generates: data:image/svg+xml;utf8,%3Csvg...
-  // We need to decode it and re-encode properly for CSS
-  let processedUrl = svgDataUrl
-
-  // If the URL uses utf8 encoding with URL-encoded content, decode it
+function processSvgForDisplay(svgDataUrl: string): string {
+  // If the URL uses utf8 encoding with URL-encoded content, decode and process it
   if (svgDataUrl.includes(';utf8,')) {
     const svgPart = svgDataUrl.split(';utf8,')[1]
     try {
       let decodedSvg = decodeURIComponent(svgPart)
 
       // Only replace currentColor, preserve other colors (like logos, emojis, etc.)
-      // Dark mode: white, Light mode: black
+      // Dark mode: light color, Light mode: dark color
       const isDark = document.documentElement.classList.contains('dark')
         || document.body.classList.contains('dark')
         || document.documentElement.getAttribute('data-theme') === 'dark'
 
       decodedSvg = decodedSvg.replace(/currentColor/g, isDark ? '#d4d4d4' : '#1e1e1e')
 
-      // Re-encode for CSS using encodeURIComponent
-      processedUrl = `data:image/svg+xml,${encodeURIComponent(decodedSvg)}`
+      // Re-encode for CSS - use base64 for better compatibility
+      const base64 = btoa(unescape(encodeURIComponent(decodedSvg)))
+      return `data:image/svg+xml;base64,${base64}`
     }
     catch {
-      // Keep original if decoding fails
+      // Keep original if processing fails
     }
   }
+  return svgDataUrl
+}
 
-  // Escape single quotes for CSS
-  processedUrl = processedUrl.replace(/'/g, '%27')
+/**
+ * Gets or creates a CSS class for inline icon display
+ * This class is used for the icon background styling
+ */
+function getOrCreateInlineIconClass(className: string, svgDataUrl: string, fontSize: number): string {
+  const safeClassName = `uno-inline-icon-${className.replace(/[^a-z0-9]/gi, '-')}`
+
+  // Check if style already exists
+  const existingStyle = document.getElementById(`icon-style-${safeClassName}`)
+  if (existingStyle) {
+    return safeClassName
+  }
+
+  // Process the SVG URL for theme colors
+  const processedUrl = processSvgForDisplay(svgDataUrl)
 
   // Create a new style element for this icon
   const style = document.createElement('style')
   style.id = `icon-style-${safeClassName}`
 
-  // Use background-image directly since we've already processed the colors in the SVG
+  // Icon display strategy (inplace mode):
+  // - Default: hide text completely (font-size: 0), show icon only
+  // - When cursor is on the line: show text, hide icon
+  // Uses CSS classes to toggle between states
+  const iconSize = fontSize
   style.textContent = `
     .monaco-editor .${safeClassName} {
-      display: inline-block !important;
-      width: 1.2em !important;
-      height: 1.2em !important;
-      margin-right: 2px !important;
-      vertical-align: middle !important;
-      background-image: url('${processedUrl}') !important;
-      background-repeat: no-repeat !important;
-      background-size: 100% 100% !important;
-      color: #222222;
+      font-size: 0 !important;
+      letter-spacing: 0 !important;
     }
-
-    .dark .monaco-editor .${safeClassName} {
-      color: #eeeeee;
+    .monaco-editor .${safeClassName}::before {
+      content: '';
+      display: inline-block;
+      width: ${iconSize + 4}px;
+      height: ${iconSize + 4}px;
+      font-size: ${fontSize}px;
+      background-image: url("${processedUrl.replace(/"/g, '\\"')}");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      vertical-align: text-bottom;
+      position: relative;
+      top: 20%;
+    }
+    /* When cursor is on this line, show text and hide icon */
+    .monaco-editor .${safeClassName}.uno-icon-editing {
+      font-size: ${fontSize}px !important;
+      letter-spacing: normal !important;
+    }
+    .monaco-editor .${safeClassName}.uno-icon-editing::before {
+      display: none;
     }
   `
   document.head.appendChild(style)
@@ -1184,6 +1206,7 @@ async function getIconSvgDataUrl(className: string): Promise<string | null> {
 
 /**
  * Updates icon inline decorations for icon classes
+ * Supports inplace mode: shows icon by default, shows text when cursor is on that line
  */
 async function updateIconDecorations(editor: monaco.editor.IStandaloneCodeEditor): Promise<void> {
   const model = editor.getModel()
@@ -1191,9 +1214,17 @@ async function updateIconDecorations(editor: monaco.editor.IStandaloneCodeEditor
     return
   }
 
+  // Get current cursor line
+  const cursorLine = editor.getPosition()?.lineNumber ?? -1
+  currentCursorLine = cursorLine
+
+  // Get editor font size for icon sizing
+  const editorOptions = editor.getOptions()
+  const fontSize = editorOptions.get(monacoEditor.editor.EditorOption.fontSize)
+
   const allClasses = findAllClassNames(model)
 
-  // Filter to only icon classes and deduplicate by className + line
+  // Filter to only icon classes and deduplicate by className + position
   const iconClasses = allClasses.filter(info => isIconClass(info.className))
   const seenIcons = new Set<string>()
   const uniqueIconClasses = iconClasses.filter((info) => {
@@ -1205,21 +1236,20 @@ async function updateIconDecorations(editor: monaco.editor.IStandaloneCodeEditor
     return true
   })
 
-  // Get SVG data for each icon class
   const decorations: monaco.editor.IModelDeltaDecoration[] = []
 
   for (const info of uniqueIconClasses) {
     const svgDataUrl = await getIconSvgDataUrl(info.className)
     if (svgDataUrl) {
-      const iconClass = getOrCreateIconClass(info.className, svgDataUrl)
+      const iconClass = getOrCreateInlineIconClass(info.className, svgDataUrl, fontSize)
+      // Add 'uno-icon-editing' class when cursor is on the same line
+      const isEditing = info.range.startLineNumber === cursorLine
+      const classes = isEditing ? `${iconClass} uno-icon-editing` : iconClass
+
       decorations.push({
         range: info.range,
         options: {
-          // Show icon before the class name
-          before: {
-            content: ' ',
-            inlineClassName: iconClass,
-          },
+          inlineClassName: classes,
         },
       })
     }
@@ -1292,6 +1322,16 @@ export function initUnocssIntegration(editor: monaco.editor.IStandaloneCodeEdito
   // Setup theme observer for icon color updates
   setupThemeObserver()
 
+  // Setup cursor position listener for inplace icon mode
+  // When cursor moves to a different line, update icon decorations
+  cursorPositionDispose = editor.onDidChangeCursorPosition((e) => {
+    const newLine = e.position.lineNumber
+    if (newLine !== currentCursorLine) {
+      // Only update icon decorations when line changes (for performance)
+      updateIconDecorations(editor)
+    }
+  })
+
   // Setup decoration updates
   const model = editor.getModel()
   if (model) {
@@ -1339,6 +1379,10 @@ export function disposeUnocssIntegration(): void {
   completionProviderDispose?.dispose()
   completionProviderDispose = null
 
+  // Dispose cursor position listener
+  cursorPositionDispose?.dispose()
+  cursorPositionDispose = null
+
   // Disconnect theme observer
   themeObserver?.disconnect()
   themeObserver = null
@@ -1356,6 +1400,7 @@ export function disposeUnocssIntegration(): void {
   document.querySelectorAll('[id^="icon-style-uno-icon-"]').forEach(el => el.remove())
 
   currentEditor = null
+  currentCursorLine = -1
   autocompleteInstance = null
   cssCache.clear()
   validClassCache.clear()

@@ -271,6 +271,7 @@ export async function initEditor(): Promise<void> {
     padding: { top: 16 },
     scrollBeyondLastLine: false,
     fixedOverflowWidgets: true,
+    glyphMargin: true, // Enable glyph margin for icon decorations
   })
 
   setupThemeObserver()
