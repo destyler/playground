@@ -253,7 +253,8 @@ async function handleFrameworkChange(framework: Framework): Promise<void> {
  */
 export function renderFileTabs(): void {
   const container = document.getElementById('file-tabs')
-  if (!container) return
+  if (!container)
+    return
 
   container.innerHTML = ''
 
@@ -427,10 +428,12 @@ function updateConfigButtonStates(): void {
  */
 function startRenaming(fileName: string, tabElement: HTMLButtonElement): void {
   // Don't allow renaming App files
-  if (fileName.startsWith('App.')) return
+  if (fileName.startsWith('App.'))
+    return
 
   const nameSpan = tabElement.querySelector('.file-tab-name') as HTMLSpanElement
-  if (!nameSpan) return
+  if (!nameSpan)
+    return
 
   const spanWidth = nameSpan.offsetWidth
 
@@ -440,8 +443,10 @@ function startRenaming(fileName: string, tabElement: HTMLButtonElement): void {
   input.style.width = `${spanWidth}px`
   input.addEventListener('blur', () => finishRenaming(fileName, input))
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') finishRenaming(fileName, input)
-    else if (e.key === 'Escape') renderFileTabs()
+    if (e.key === 'Enter')
+      finishRenaming(fileName, input)
+    else if (e.key === 'Escape')
+      renderFileTabs()
   })
   input.addEventListener('click', e => e.stopPropagation())
 
@@ -504,7 +509,8 @@ function addNewFile(): void {
   // Start renaming the new file immediately
   setTimeout(() => {
     const tab = document.querySelector(`[data-file-name="${name}"]`) as HTMLButtonElement
-    if (tab) startRenaming(name, tab)
+    if (tab)
+      startRenaming(name, tab)
   }, 0)
 }
 
@@ -539,7 +545,8 @@ function generateUniqueFileName(baseName: string, extension: string): string {
  */
 function deleteFile(name: string): void {
   // Don't allow deleting the main App file or the last file
-  if (name.startsWith('App.') || state.files.length <= 1) return
+  if (name.startsWith('App.') || state.files.length <= 1)
+    return
 
   state.files = state.files.filter(f => f.name !== name)
 
@@ -562,7 +569,8 @@ function deleteFile(name: string): void {
  * Schedules iframe update with debounce
  */
 function scheduleIframeUpdate(): void {
-  if (updateTimer) clearTimeout(updateTimer)
+  if (updateTimer)
+    clearTimeout(updateTimer)
   updateTimer = setTimeout(updateIframe, DEBOUNCE_DELAYS.IFRAME_UPDATE)
 }
 
@@ -570,7 +578,8 @@ function scheduleIframeUpdate(): void {
  * Schedules URL update with debounce
  */
 function scheduleUrlUpdate(): void {
-  if (urlUpdateTimer) clearTimeout(urlUpdateTimer)
+  if (urlUpdateTimer)
+    clearTimeout(urlUpdateTimer)
   urlUpdateTimer = setTimeout(() => {
     updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent, state.unoConfigContent)
   }, DEBOUNCE_DELAYS.URL_UPDATE)
@@ -580,7 +589,8 @@ function scheduleUrlUpdate(): void {
  * Schedules tsconfig update with debounce
  */
 function scheduleTsconfigUpdate(): void {
-  if (tsconfigUpdateTimer) clearTimeout(tsconfigUpdateTimer)
+  if (tsconfigUpdateTimer)
+    clearTimeout(tsconfigUpdateTimer)
   tsconfigUpdateTimer = setTimeout(refreshLanguageService, DEBOUNCE_DELAYS.TSCONFIG_UPDATE)
 }
 
@@ -588,7 +598,8 @@ function scheduleTsconfigUpdate(): void {
  * Schedules UnoCSS update with debounce
  */
 function scheduleUnoUpdate(): void {
-  if (unoUpdateTimer) clearTimeout(unoUpdateTimer)
+  if (unoUpdateTimer)
+    clearTimeout(unoUpdateTimer)
   unoUpdateTimer = setTimeout(async () => {
     await generateUnoCSS()
     sendUnoCSSToIframe()
@@ -625,7 +636,8 @@ async function generateUnoCSS(): Promise<void> {
  * Sends UnoCSS to iframe via postMessage
  */
 function sendUnoCSSToIframe(): void {
-  if (!iframeRef) return
+  if (!iframeRef)
+    return
   iframeRef.contentWindow?.postMessage({
     type: 'UPDATE_UNOCSS',
     css: state.generatedUnoCSS,
@@ -640,7 +652,8 @@ function sendUnoCSSToIframe(): void {
  * Updates the preview iframe
  */
 async function updateIframe(): Promise<void> {
-  if (!iframeRef) return
+  if (!iframeRef)
+    return
 
   if (previousFramework !== state.activeFramework) {
     isIframeLoaded = false

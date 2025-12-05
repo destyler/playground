@@ -189,7 +189,8 @@ function serializeFilesToMap(files: File[]): string {
  * Creates UnoCSS style tag with generated CSS
  */
 function createUnoStyleTag(unoCSS: string): string {
-  if (!unoCSS) return ''
+  if (!unoCSS)
+    return ''
   // Escape any closing style tags in the CSS
   const escapedCSS = unoCSS.replace(/<\/style/gi, '<\\/style')
   return `<style id="__unocss__">${escapedCSS}</style>`
@@ -267,7 +268,8 @@ export function generateHtml(
     };
     document.head.appendChild(script);
   </script>`
-  } else {
+  }
+  else {
     const cdnScripts = FRAMEWORK_CDNS[framework]
       .map(url => `<script src="${url}"></script>`)
       .join('\n')

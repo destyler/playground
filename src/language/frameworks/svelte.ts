@@ -54,8 +54,8 @@ const svelteLanguageConfiguration = {
  * Svelte dependencies for CDN type resolution
  */
 const svelteDependencies: Record<string, string> = {
-  typescript: 'latest',
-  svelte: '5',
+  'typescript': 'latest',
+  'svelte': '5',
   // UnoCSS types for uno.config.ts
   'unocss': 'latest',
   '@unocss/core': 'latest',

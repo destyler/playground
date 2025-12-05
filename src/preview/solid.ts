@@ -7,8 +7,6 @@
  * @module preview/solid
  */
 
-
-
 /**
  * Generates the Solid.js preview runtime script
  *

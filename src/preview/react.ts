@@ -7,8 +7,6 @@
  * @module preview/react
  */
 
-
-
 /**
  * Generates the React preview runtime script
  *

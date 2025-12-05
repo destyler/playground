@@ -12,6 +12,7 @@ import VueWorker from '../language/workers/vue.worker?worker'
 import { FRAMEWORKS } from '../templates'
 import { registerHighlighter } from '../theme/highlighter'
 import { CONFIG_FILES, READ_ONLY_CONFIG_FILES, state } from './state'
+import { initUnocssIntegration, injectUnocssStyles, resetAutocomplete } from './unocss-integration'
 
 // ============================================================================
 // Types
@@ -280,6 +281,10 @@ export async function initEditor(): Promise<void> {
   await setupLanguageService(state.activeFramework)
   syncFilesToModels()
   updateActiveModel()
+
+  // Initialize UnoCSS integration (hover, autocomplete, decorations)
+  injectUnocssStyles()
+  initUnocssIntegration(editorInstance)
 }
 
 /**
@@ -322,6 +327,8 @@ function handleConfigFileChange(fileName: string, newValue: string): void {
   else if (fileName === CONFIG_FILES.UNO_CONFIG && state.unoConfigContent !== newValue) {
     state.unoConfigContent = newValue
     onConfigChangeCallback?.(fileName, newValue)
+    // Reset UnoCSS autocomplete when config changes
+    resetAutocomplete()
   }
 }
 
@@ -786,8 +793,8 @@ export function setEditorToConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG |
  */
 function scheduleSemanticRefresh(model: monaco.editor.ITextModel): void {
   setTimeout(() => {
-    if (model.isDisposed()) 
-return
+    if (model.isDisposed())
+      return
 
     // Force Monaco to re-validate by pushing a no-op edit
     const fullRange = model.getFullModelRange()
