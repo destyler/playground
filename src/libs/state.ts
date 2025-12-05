@@ -61,6 +61,8 @@ export interface PlaygroundState {
   generatedUnoCSS: string
   /** Matched UnoCSS utilities */
   matchedUtilities: string[]
+  /** Selected destyler package version */
+  destylerVersion: string
 }
 
 // ============================================================================
@@ -83,4 +85,5 @@ export const state: PlaygroundState = {
   unoConfigError: null,
   generatedUnoCSS: '',
   matchedUtilities: [],
+  destylerVersion: 'latest',
 }

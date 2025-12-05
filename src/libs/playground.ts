@@ -120,7 +120,7 @@ function initializeState(urlState: ReturnType<typeof getStateFromUrl>): void {
  * Restores state from URL parameters
  */
 function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFromUrl>>): void {
-  const { framework, files: filesRecord, tsconfig, importMap, unoConfig } = urlState
+  const { framework, files: filesRecord, tsconfig, importMap, unoConfig, destylerVersion } = urlState
   const files = recordToFiles(filesRecord)
 
   state.activeFramework = framework
@@ -139,13 +139,17 @@ function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFro
     state.unoConfigContent = unoConfig
   }
 
+  if (destylerVersion) {
+    state.destylerVersion = destylerVersion
+  }
+
   // Prevent handleFrameworkChange from resetting files
   isRestoringFromUrl = true
 
   // Notify Select component about the framework change
   setTimeout(() => {
     window.dispatchEvent(new CustomEvent('url:framework-restored', {
-      detail: { framework },
+      detail: { framework, destylerVersion },
     }))
     setTimeout(() => {
       isRestoringFromUrl = false
@@ -581,7 +585,7 @@ function scheduleUrlUpdate(): void {
   if (urlUpdateTimer)
     clearTimeout(urlUpdateTimer)
   urlUpdateTimer = setTimeout(() => {
-    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent, state.unoConfigContent)
+    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent, state.unoConfigContent, state.destylerVersion)
   }, DEBOUNCE_DELAYS.URL_UPDATE)
 }
 

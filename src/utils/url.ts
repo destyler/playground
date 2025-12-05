@@ -14,6 +14,8 @@ export interface UrlState {
   tsconfig?: string
   importMap?: string
   unoConfig?: string
+  /** Destyler package version */
+  destylerVersion?: string
 }
 
 // ============================================================================
@@ -117,6 +119,7 @@ export function updateUrlHash(
   tsconfig?: string,
   importMap?: string,
   unoConfig?: string,
+  destylerVersion?: string,
 ): void {
   const urlState: UrlState = {
     framework,
@@ -134,6 +137,10 @@ export function updateUrlHash(
   // This ensures the config is preserved when sharing
   if (unoConfig !== undefined) {
     urlState.unoConfig = unoConfig
+  }
+  // Save destyler version for sharing
+  if (destylerVersion) {
+    urlState.destylerVersion = destylerVersion
   }
 
   const hash = serializeState(urlState)

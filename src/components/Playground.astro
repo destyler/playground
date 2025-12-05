@@ -3,10 +3,11 @@ import Editor from './Editor.astro'
 import GitHub from './ui/GitHub.astro'
 import Logo from './ui/Logo.astro'
 import Reset from './ui/Reset.astro'
-import ThemeSelect from './ui/Select.vue'
 import Sharable from './ui/Sharable.astro'
 import Splitter from './ui/Splitter.tsx'
 import ThemeToggle from './ui/Toggle.vue'
+import VersionSelect from './ui/VersionSelect.astro'
+import FrameworkSelect from './ui/FrameworkSelect.astro'
 import '../styles/tab.css'
 ---
 
@@ -22,7 +23,8 @@ import '../styles/tab.css'
     </h1>
     <!-- links -->
     <div class="flex">
-      <ThemeSelect client:only="vue" />
+      <VersionSelect />
+      <FrameworkSelect />
       <ThemeToggle client:only="vue" />
       <Sharable />
       <Reset />

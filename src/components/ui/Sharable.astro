@@ -29,7 +29,7 @@ function initShareButton() {
 
   shareBtn.addEventListener('click', async () => {
     // Force update URL immediately before copying (include all config content)
-    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent, state.unoConfigContent)
+    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent, state.unoConfigContent, state.destylerVersion)
 
     const success = await copyShareableUrl()
 

@@ -1,0 +1,188 @@
+---
+/**
+ * Framework Select Component
+ *
+ * A dropdown select component for choosing the active framework in the playground.
+ * Based on Vue SFC Playground's VersionSelect component style.
+ *
+ * Events:
+ * - Dispatches 'framework:change' when user selects a different framework
+ * - Listens for 'url:framework-restored' to sync with URL state
+ */
+---
+
+<div class="mr-3 relative flex justify-center items-center" id="framework-select-container">
+  <span
+    class="cursor-pointer relative inline-flex place-items-center text-sm text-primary after:content-empty after:w-0 after:h-0 after:border-l-4 after:border-l-transparent after:border-r-4 after:border-r-transparent after:border-t-6 after:border-t-muted-foreground after:ml-2"
+    id="framework-trigger"
+  >
+    <span class="text-accent-foreground font-medium" id="framework-label">Vue</span>
+  </span>
+
+  <ul
+    class="hidden absolute left-0 top-[--nav-height] bg-popover border border-solid border-border rounded list-none p-2 mt-1 m-0 w-30 z-99999"
+    id="framework-dropdown"
+  >
+    <!-- Framework options will be rendered by script -->
+  </ul>
+</div>
+
+<script>
+import type { Framework } from '../../templates/types'
+import { FRAMEWORK_OPTIONS, state } from '../../libs/state'
+
+const EVENTS = {
+  FRAMEWORK_CHANGE: 'framework:change',
+  URL_FRAMEWORK_RESTORED: 'url:framework-restored',
+} as const
+
+const INIT_DELAY = 300
+
+let expanded = false
+let selectedFramework: Framework = state.activeFramework
+let isInitializing = true
+
+function getElements() {
+  return {
+    container: document.getElementById('framework-select-container') as HTMLElement | null,
+    trigger: document.getElementById('framework-trigger'),
+    label: document.getElementById('framework-label'),
+    dropdown: document.getElementById('framework-dropdown'),
+  }
+}
+
+function updateUI() {
+  const { label, dropdown } = getElements()
+
+  if (label) {
+    const option = FRAMEWORK_OPTIONS.find(o => o.value === selectedFramework)
+    label.textContent = option?.label || selectedFramework
+  }
+
+  if (dropdown) {
+    if (expanded) {
+      dropdown.classList.remove('hidden')
+      dropdown.classList.add('block')
+    } else {
+      dropdown.classList.remove('block')
+      dropdown.classList.add('hidden')
+    }
+  }
+}
+
+function renderFrameworkList() {
+  const { dropdown } = getElements()
+  if (!dropdown) return
+
+  // Clear existing items
+  dropdown.innerHTML = ''
+
+  FRAMEWORK_OPTIONS.forEach((option) => {
+    const isActive = option.value === selectedFramework
+    const li = document.createElement('li')
+    li.className = 'flex justify-between items-center'
+
+    const a = document.createElement('a')
+    a.className = 'block px-3 py-1.5 no-underline cursor-pointer text-popover-foreground/80 text-sm rounded hover:text-popover-foreground' + (isActive ? ' text-accent-foreground font-medium' : '')
+    a.textContent = option.label
+    a.addEventListener('click', (e) => {
+      e.stopPropagation()
+      setFramework(option.value)
+    })
+
+    li.appendChild(a)
+    dropdown.appendChild(li)
+  })
+}
+
+function setFramework(framework: Framework) {
+  if (selectedFramework === framework) {
+    expanded = false
+    updateUI()
+    return
+  }
+
+  selectedFramework = framework
+  expanded = false
+  updateUI()
+  renderFrameworkList()
+
+  if (!isInitializing) {
+    window.dispatchEvent(
+      new CustomEvent(EVENTS.FRAMEWORK_CHANGE, {
+        detail: { framework },
+      })
+    )
+  }
+}
+
+function toggle() {
+  expanded = !expanded
+  updateUI()
+}
+
+function handleClickOutside() {
+  expanded = false
+  updateUI()
+}
+
+function handleBlur() {
+  if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+    expanded = false
+    updateUI()
+  }
+}
+
+function handleUrlStateRestore(e: Event) {
+  const customEvent = e as CustomEvent<{ framework: Framework }>
+  const framework = customEvent.detail.framework
+  if (framework && selectedFramework !== framework) {
+    isInitializing = true
+    selectedFramework = framework
+    updateUI()
+    renderFrameworkList()
+    isInitializing = false
+  }
+}
+
+function initFrameworkSelect() {
+  const { trigger, container } = getElements()
+
+  if (!trigger || !container) return
+
+  // Prevent double initialization
+  if ((container as any).__initialized) {
+    return
+  }
+  (container as any).__initialized = true
+
+  // Initial render
+  renderFrameworkList()
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation()
+    toggle()
+  })
+
+  window.addEventListener('click', handleClickOutside)
+  window.addEventListener('blur', handleBlur)
+  window.addEventListener(EVENTS.URL_FRAMEWORK_RESTORED, handleUrlStateRestore)
+
+  // Sync initial value from state
+  setTimeout(() => {
+    if (state.activeFramework && selectedFramework !== state.activeFramework) {
+      selectedFramework = state.activeFramework
+      updateUI()
+      renderFrameworkList()
+    }
+
+    // Mark initialization as complete after a short delay
+    setTimeout(() => {
+      isInitializing = false
+    }, INIT_DELAY)
+  }, 100)
+}
+
+document.addEventListener('DOMContentLoaded', initFrameworkSelect)
+document.addEventListener('astro:page-load', initFrameworkSelect)
+</script>

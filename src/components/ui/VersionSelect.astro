@@ -1,0 +1,275 @@
+---
+/**
+ * Version Select Component
+ *
+ * A dropdown select component for choosing the destyler package version.
+ * Fetches available versions from npm.destyler.org API.
+ * Based on Vue SFC Playground's VersionSelect component style.
+ *
+ * Events:
+ * - Dispatches 'destyler:version-change' when user selects a different version
+ */
+---
+
+<div class="mr-3 relative flex justify-center items-center" id="version-select-container">
+  <span
+    class="cursor-pointer relative inline-flex place-items-center text-sm text-primary after:content-empty after:w-0 after:h-0 after:border-l-4 after:border-l-transparent after:border-r-4 after:border-r-transparent after:border-t-6 after:border-t-muted-foreground after:ml-2"
+    id="version-trigger"
+  >
+    <span id="version-pkg-label">Destyler</span>
+    <span class="text-accent-foreground ml-1" id="version-label">latest</span>
+  </span>
+
+  <ul
+    class="hidden absolute left-0 top-[--nav-height] bg-popover border border-solid border-border rounded list-none p-2 mt-1 m-0 w-50 max-h-75 overflow-y-auto z-99999"
+    id="version-dropdown"
+  >
+    <li id="version-loading"><a class="block px-3 py-1.5 no-underline cursor-pointer text-popover-foreground text-sm rounded">loading versions...</a></li>
+  </ul>
+</div>
+
+<script>
+import { state } from '../../libs/state'
+
+const EVENTS = {
+  VERSION_CHANGE: 'destyler:version-change',
+  FRAMEWORK_CHANGE: 'framework:change',
+  URL_FRAMEWORK_RESTORED: 'url:framework-restored',
+}
+
+const FRAMEWORK_PACKAGE_MAP: Record<string, string> = {
+  vue: '@destyler/vue',
+  react: '@destyler/react',
+  solid: '@destyler/solid',
+  svelte: '@destyler/svelte',
+}
+
+const FRAMEWORK_LABEL_MAP: Record<string, string> = {
+  vue: 'Destyler Vue',
+  react: 'Destyler React',
+  solid: 'Destyler Solid',
+  svelte: 'Destyler Svelte',
+}
+
+let expanded = false
+let versions: string[] | null = null
+let selectedVersion = 'latest'
+let currentPackage = ''
+let currentFramework = ''
+
+function getElements() {
+  return {
+    container: document.getElementById('version-select-container') as HTMLElement | null,
+    trigger: document.getElementById('version-trigger'),
+    pkgLabel: document.getElementById('version-pkg-label'),
+    label: document.getElementById('version-label'),
+    dropdown: document.getElementById('version-dropdown'),
+    loading: document.getElementById('version-loading'),
+  }
+}
+
+async function fetchVersions(packageName: string): Promise<string[]> {
+  try {
+    const response = await fetch('https://npm.destyler.org/versions/' + packageName)
+    if (!response.ok) {
+      throw new Error('Failed to fetch versions: ' + response.status)
+    }
+    const data = await response.json()
+    // Reverse to show newest versions first
+    return (data.versions || []).reverse()
+  }
+  catch (error) {
+    console.error('Failed to fetch versions:', error)
+    return []
+  }
+}
+
+function updateUI() {
+  const { label, dropdown, pkgLabel } = getElements()
+
+  if (label) {
+    label.textContent = selectedVersion
+  }
+
+  if (pkgLabel && currentFramework) {
+    pkgLabel.textContent = FRAMEWORK_LABEL_MAP[currentFramework] || 'Destyler'
+  }
+
+  if (dropdown) {
+    if (expanded) {
+      dropdown.classList.remove('hidden')
+      dropdown.classList.add('block')
+    }
+    else {
+      dropdown.classList.remove('block')
+      dropdown.classList.add('hidden')
+    }
+  }
+}
+
+function renderVersionList() {
+  const { dropdown, loading } = getElements()
+  if (!dropdown)
+    return
+
+  if (loading) {
+    loading.style.display = 'none'
+  }
+
+  const existingItems = dropdown.querySelectorAll('li:not(#version-loading)')
+  existingItems.forEach(function(item) { item.remove() })
+
+  if (!versions || versions.length === 0) {
+    return
+  }
+
+  versions.slice(0, 30).forEach(function(version: string, index: number) {
+    const isActive = version === selectedVersion || (selectedVersion === 'latest' && index === 0)
+    const li = document.createElement('li')
+    li.className = 'flex justify-between items-center'
+
+    const a = document.createElement('a')
+    a.className = 'block px-3 py-1.5 no-underline cursor-pointer text-popover-foreground/80 text-sm rounded hover:text-popover-foreground' + (isActive ? ' text-accent-foreground font-medium' : '')
+    a.textContent = 'v' + version
+    a.addEventListener('click', function(e) {
+      e.stopPropagation()
+      setVersion(version)
+    })
+
+    li.appendChild(a)
+    dropdown.appendChild(li)
+  })
+}
+
+function setVersion(version: string) {
+  selectedVersion = version
+  expanded = false
+
+  // Update global state
+  state.destylerVersion = version
+
+  updateUI()
+  renderVersionList()
+
+  window.dispatchEvent(
+    new CustomEvent(EVENTS.VERSION_CHANGE, {
+      detail: { version: version, package: currentPackage },
+    }),
+  )
+}
+
+async function toggle() {
+  expanded = !expanded
+  updateUI()
+
+  if (expanded && !versions) {
+    const { loading } = getElements()
+    if (loading) {
+      loading.style.display = 'block'
+    }
+    versions = await fetchVersions(currentPackage)
+    if (versions.length > 0) {
+      // Use state version if available, otherwise use first version
+      if (state.destylerVersion && state.destylerVersion !== 'latest') {
+        selectedVersion = state.destylerVersion
+      } else {
+        selectedVersion = versions[0]
+        state.destylerVersion = selectedVersion
+      }
+    }
+    updateUI()
+    renderVersionList()
+  }
+}
+
+function handleClickOutside() {
+  expanded = false
+  updateUI()
+}
+
+function handleBlur() {
+  if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+    expanded = false
+    updateUI()
+  }
+}
+
+async function loadVersionsForFramework(framework: string) {
+  const packageName = FRAMEWORK_PACKAGE_MAP[framework]
+  if (!packageName) {
+    return
+  }
+
+  currentPackage = packageName
+  currentFramework = framework
+  versions = null
+  selectedVersion = 'latest'
+  expanded = false
+
+  updateUI()
+
+  const { dropdown, loading } = getElements()
+  if (dropdown) {
+    const existingItems = dropdown.querySelectorAll('li:not(#version-loading)')
+    existingItems.forEach(function(item) { item.remove() })
+  }
+  if (loading) {
+    loading.style.display = 'block'
+  }
+}
+
+function initVersionSelect() {
+  const { trigger, container } = getElements()
+
+  if (!trigger || !container)
+    return
+
+  if ((container as any).__initialized) {
+    return
+  }
+  (container as any).__initialized = true
+
+  trigger.addEventListener('click', function(e) {
+    e.stopPropagation()
+    toggle()
+  })
+
+  window.addEventListener('click', handleClickOutside)
+  window.addEventListener('blur', handleBlur)
+
+  // Listen for framework changes from user selection
+  window.addEventListener(EVENTS.FRAMEWORK_CHANGE, function(e: Event) {
+    const customEvent = e as CustomEvent<{ framework: string }>
+    loadVersionsForFramework(customEvent.detail.framework)
+  })
+
+  // Listen for framework restoration from URL (includes version)
+  window.addEventListener(EVENTS.URL_FRAMEWORK_RESTORED, function(e: Event) {
+    const customEvent = e as CustomEvent<{ framework: string, destylerVersion?: string }>
+    loadVersionsForFramework(customEvent.detail.framework)
+
+    // Restore version from URL if available
+    if (customEvent.detail.destylerVersion) {
+      selectedVersion = customEvent.detail.destylerVersion
+      state.destylerVersion = customEvent.detail.destylerVersion
+      updateUI()
+    }
+  })
+
+  // Use setTimeout to wait for state to be restored from URL
+  setTimeout(function() {
+    currentFramework = state.activeFramework
+    currentPackage = FRAMEWORK_PACKAGE_MAP[state.activeFramework] || '@destyler/vue'
+
+    // Restore version from state if available
+    if (state.destylerVersion && state.destylerVersion !== 'latest') {
+      selectedVersion = state.destylerVersion
+    }
+
+    updateUI()
+  }, 150)
+}
+
+document.addEventListener('DOMContentLoaded', initVersionSelect)
+document.addEventListener('astro:page-load', initVersionSelect)
+</script>
