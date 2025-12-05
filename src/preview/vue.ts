@@ -99,9 +99,56 @@ export function generateVueScript(serializedFiles: string, serializedImportMap?:
             moduleCache: { ...moduleCache },
             async getFile(url) {
               const filename = url.replace(/^\\.\\//, '');
+
+              // Check if it's a user file
               if (files[filename]) {
                 return files[filename];
               }
+
+              // Check if it's an external module that we've pre-loaded
+              // vue3-sfc-loader might request the module by name
+              if (moduleCache[url] || moduleCache[filename]) {
+                // Return empty string - the module is already in moduleCache
+                // This tells vue3-sfc-loader to use the cached version
+                return '';
+              }
+
+              // Check if it's in our import map (external modules)
+              if (externalModules[url] || externalModules[filename]) {
+                const moduleUrl = externalModules[url] || externalModules[filename];
+                try {
+                  // Dynamically load the module and add to cache
+                  const module = await import(moduleUrl);
+                  const plainModule = {};
+                  for (const key of Object.keys(module)) {
+                    plainModule[key] = module[key];
+                  }
+                  if (module.default !== undefined) {
+                    plainModule.default = module.default;
+                  }
+                  if (typeof module.default === 'function') {
+                    const wrapper = function(...args) {
+                      return module.default(...args);
+                    };
+                    Object.assign(wrapper, plainModule);
+                    wrapper.default = module.default;
+                    moduleCache[url] = wrapper;
+                    moduleCache[filename] = wrapper;
+                    options.moduleCache[url] = wrapper;
+                    options.moduleCache[filename] = wrapper;
+                  } else {
+                    moduleCache[url] = plainModule;
+                    moduleCache[filename] = plainModule;
+                    options.moduleCache[url] = plainModule;
+                    options.moduleCache[filename] = plainModule;
+                  }
+                  return '';
+                } catch (e) {
+                  console.error('[Vue Playground] Failed to load module:', url, e);
+                  throw new Error('Failed to load module: ' + url);
+                }
+              }
+
               throw new Error('File not found: ' + url);
             },
             addStyle(textContent) {

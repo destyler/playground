@@ -74,48 +74,18 @@ const SCRIPT_GENERATORS: Readonly<Record<Framework, ScriptGenerator>> = {
 // ============================================================================
 
 /**
- * Resolves a package name and version to a CDN URL
+ * Converts user import map to standard import map
+ * User provides direct CDN URLs, no automatic resolution needed
  *
- * @param packageName - npm package name
- * @param version - version specifier (e.g., "^4.17.21", "latest", "1.0.0")
- * @returns CDN URL for the package
- */
-function resolvePackageToCdn(packageName: string, version: string): string {
-  // Clean up version string
-  const cleanVersion = version.replace(/^[\^~]/, '')
-
-  // Base URL construction
-  const baseUrl = cleanVersion === 'latest' || cleanVersion === '*'
-    ? `${CDN_BASE_URL}/${packageName}`
-    : `${CDN_BASE_URL}/${packageName}@${cleanVersion}`
-
-  // Use esm.sh's external feature to ensure Vue ecosystem packages
-  // use the same Vue instance from the import map instead of bundling their own
-  // This is critical for reactivity to work across packages like @vueuse/core
-  return `${baseUrl}?external=vue,@vue/runtime-core,@vue/runtime-dom,@vue/reactivity,@vue/shared`
-}
-
-/**
- * Converts user import map (package.json format) to standard import map
- *
- * @param userImportMap - User-defined import map with dependencies
- * @returns Standard ImportMap with resolved CDN URLs
+ * @param userImportMap - User-defined import map with direct imports
+ * @returns Standard ImportMap
  */
 function resolveUserImportMap(userImportMap?: UserImportMap): ImportMap {
-  if (!userImportMap) {
+  if (!userImportMap || !userImportMap.imports) {
     return { imports: {} }
   }
 
-  const resolvedImports: Record<string, string> = {}
-
-  // Resolve dependencies to CDN URLs
-  if (userImportMap.dependencies) {
-    for (const [packageName, version] of Object.entries(userImportMap.dependencies)) {
-      resolvedImports[packageName] = resolvePackageToCdn(packageName, version)
-    }
-  }
-
-  return { imports: resolvedImports }
+  return { imports: { ...userImportMap.imports } }
 }
 
 /**
@@ -175,14 +145,14 @@ function createErrorHandlingScript(): string {
  * Core imports take precedence and cannot be overridden by user
  *
  * @param coreImports - Framework core dependencies
- * @param userImportMap - User-defined import map (with dependencies or direct imports)
+ * @param userImportMap - User-defined import map with direct imports
  * @returns Merged ImportMap
  */
 function mergeImportMaps(
   coreImports: Record<string, string>,
   userImportMap?: UserImportMap,
 ): ImportMap {
-  // Resolve user dependencies to CDN URLs
+  // Get user imports directly (no resolution needed)
   const resolvedUserMap = resolveUserImportMap(userImportMap)
   const userImports = resolvedUserMap.imports
 
@@ -224,7 +194,7 @@ function serializeFilesToMap(files: File[]): string {
  *
  * @param framework - The current framework
  * @param files - Array of files to include
- * @param userImportMap - Optional user-defined import map (with dependencies or direct imports)
+ * @param userImportMap - Optional user-defined import map with direct imports
  * @returns Complete HTML string
  */
 export function generateHtml(

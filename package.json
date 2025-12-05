@@ -36,6 +36,7 @@
     "@astrojs/solid-js": "^5.1.3",
     "@astrojs/svelte": "^7.2.2",
     "@astrojs/vue": "^5.1.3",
+    "@destyler/dialog": "^0.2.0",
     "@destyler/react": "^0.2.0",
     "@destyler/select": "^0.2.0",
     "@destyler/splitter": "^0.2.0",

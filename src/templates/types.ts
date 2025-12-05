@@ -24,30 +24,25 @@ export interface ImportMap {
 }
 
 /**
- * User-friendly import map configuration (mirrors package.json format)
- * Users can specify dependencies with versions, which will be resolved to CDN URLs
+ * User-friendly import map configuration
+ * Users can specify imports directly with full CDN URLs
  *
  * @example
  * ```json
  * {
- *   "name": "my-playground",
- *   "dependencies": {
- *     "lodash-es": "^4.17.21",
- *     "dayjs": "latest"
+ *   "imports": {
+ *     "@vueuse/core": "https://esm.sh/@vueuse/core@11.0.0?external=vue",
+ *     "lodash-es": "https://esm.sh/lodash-es@4.17.21"
  *   }
  * }
  * ```
  */
 export interface UserImportMap {
   /**
-   * Package name identifier (optional, for display purposes)
+   * Direct imports with full CDN URLs
+   * User has full control over the URL (including ?external= parameters)
    */
-  name?: string
-  /**
-   * Dependencies with version specifiers (like package.json)
-   * Will be resolved to esm.sh CDN URLs
-   */
-  dependencies?: Record<string, string>
+  imports?: Record<string, string>
 }
 
 /**

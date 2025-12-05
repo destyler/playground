@@ -113,7 +113,7 @@ function initializeState(urlState: ReturnType<typeof getStateFromUrl>): void {
  * Restores state from URL parameters
  */
 function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFromUrl>>): void {
-  const { framework, files: filesRecord, tsconfig } = urlState
+  const { framework, files: filesRecord, tsconfig, importMap } = urlState
   const files = recordToFiles(filesRecord)
 
   state.activeFramework = framework
@@ -122,6 +122,10 @@ function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFro
 
   if (tsconfig) {
     state.tsconfigContent = tsconfig
+  }
+
+  if (importMap) {
+    state.importMapContent = importMap
   }
 
   // Prevent handleFrameworkChange from resetting files
@@ -161,10 +165,18 @@ function setupEditorCallbacks(): void {
     scheduleUrlUpdate()
   })
 
-  onEditorConfigChange(() => {
-    // tsconfig changed - schedule language service refresh
-    scheduleTsconfigUpdate()
+  onEditorConfigChange((fileName) => {
+    // Schedule URL update for any config change
     scheduleUrlUpdate()
+
+    if (fileName === CONFIG_FILES.TSCONFIG) {
+      // tsconfig changed - schedule language service refresh
+      scheduleTsconfigUpdate()
+    }
+    else if (fileName === CONFIG_FILES.IMPORT_MAP) {
+      // import-map changed - refresh preview to apply new dependencies
+      scheduleIframeUpdate()
+    }
   })
 }
 
@@ -347,7 +359,7 @@ function createAddFileButton(): HTMLButtonElement {
 // ============================================================================
 
 /**
- * Sets up config buttons (tsconfig.json is editable, import-map.json is read-only)
+ * Sets up config buttons (tsconfig.json and import-map.json are both editable)
  */
 function setupConfigButtons(): void {
   const tsconfigBtn = document.getElementById('tsconfig-btn')
@@ -539,7 +551,7 @@ function scheduleIframeUpdate(): void {
 function scheduleUrlUpdate(): void {
   if (urlUpdateTimer) clearTimeout(urlUpdateTimer)
   urlUpdateTimer = setTimeout(() => {
-    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent)
+    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent)
   }, DEBOUNCE_DELAYS.URL_UPDATE)
 }
 

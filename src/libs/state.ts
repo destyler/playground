@@ -16,9 +16,7 @@ export const CONFIG_FILES = {
 /**
  * Read-only config files (cannot be edited by user)
  */
-export const READ_ONLY_CONFIG_FILES: readonly string[] = [
-  CONFIG_FILES.IMPORT_MAP,
-] as const
+export const READ_ONLY_CONFIG_FILES: readonly string[] = [] as const
 
 export type ConfigFileName = typeof CONFIG_FILES[keyof typeof CONFIG_FILES]
 
