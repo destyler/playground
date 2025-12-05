@@ -9,6 +9,23 @@
  * Events:
  * - Dispatches 'destyler:version-change' when user selects a different version
  */
+import { strFromU8, strToU8, unzlibSync } from 'fflate'
+
+// Parse URL on server side to get initial values
+function parseUrlHash(): { framework?: string, version?: string } {
+  return {} // Server can't access window.location
+}
+
+const urlData = parseUrlHash()
+const initialVersion = urlData.version || 'latest'
+const initialFramework = urlData.framework || 'vue'
+
+const FRAMEWORK_LABEL_MAP: Record<string, string> = {
+  vue: 'Destyler Vue',
+  react: 'Destyler React',
+  solid: 'Destyler Solid',
+  svelte: 'Destyler Svelte',
+}
 ---
 
 <div class="mr-3 relative flex justify-center items-center" id="version-select-container">
@@ -16,8 +33,8 @@
     class="cursor-pointer relative inline-flex place-items-center text-sm text-primary after:content-empty after:w-0 after:h-0 after:border-l-4 after:border-l-transparent after:border-r-4 after:border-r-transparent after:border-t-6 after:border-t-muted-foreground after:ml-2"
     id="version-trigger"
   >
-    <span id="version-pkg-label">Destyler</span>
-    <span class="text-accent-foreground ml-1" id="version-label">latest</span>
+    <span id="version-pkg-label">{FRAMEWORK_LABEL_MAP[initialFramework] || 'Destyler'}</span>
+    <span class="text-accent-foreground ml-1" id="version-label">{initialVersion}</span>
   </span>
 
   <ul
@@ -28,13 +45,67 @@
   </ul>
 </div>
 
+<!-- Inline script to immediately update UI from URL before main script loads -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script is:inline>
+(function() {
+  try {
+    var hash = window.location.hash;
+    if (!hash || hash === '#') return;
+
+    var serializedState = hash.startsWith('#') ? hash.slice(1) : hash;
+    var binary = atob(serializedState);
+
+    var parsed;
+    // Check if it's zlib compressed (starts with magic byte 0x78)
+    if (binary.charCodeAt(0) === 0x78) {
+      // Convert binary string to Uint8Array
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      // Decompress using pako
+      var decompressed = window.pako.inflate(bytes, { to: 'string' });
+      parsed = JSON.parse(decompressed);
+    } else {
+      // Try parsing as legacy unicode format
+      var decoded = decodeURIComponent(escape(binary));
+      parsed = JSON.parse(decoded);
+    }
+
+    if (parsed) {
+      var labelEl = document.getElementById('version-label');
+      var pkgLabelEl = document.getElementById('version-pkg-label');
+
+      var frameworkLabels = {
+        vue: 'Destyler Vue',
+        react: 'Destyler React',
+        solid: 'Destyler Solid',
+        svelte: 'Destyler Svelte'
+      };
+
+      if (labelEl && parsed.destylerVersion && parsed.destylerVersion !== 'latest') {
+        labelEl.textContent = parsed.destylerVersion;
+      }
+      if (pkgLabelEl && parsed.framework) {
+        pkgLabelEl.textContent = frameworkLabels[parsed.framework] || 'Destyler';
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse URL state:', e);
+  }
+})();
+</script>
+
 <script>
+import { strFromU8, strToU8, unzlibSync } from 'fflate'
 import { state } from '../../libs/state'
 
 const EVENTS = {
   VERSION_CHANGE: 'destyler:version-change',
   FRAMEWORK_CHANGE: 'framework:change',
   URL_FRAMEWORK_RESTORED: 'url:framework-restored',
+  PLAYGROUND_STATE_READY: 'playground:state-ready',
 }
 
 const FRAMEWORK_PACKAGE_MAP: Record<string, string> = {
@@ -56,6 +127,77 @@ let versions: string[] | null = null
 let selectedVersion = 'latest'
 let currentPackage = ''
 let currentFramework = ''
+
+/**
+ * Parse version directly from URL hash
+ */
+function getVersionFromUrl(): { framework?: string, version?: string } {
+  try {
+    const hash = window.location.hash
+    if (!hash || hash === '#') return {}
+
+    const serializedState = hash.startsWith('#') ? hash.slice(1) : hash
+    const binary = atob(serializedState)
+
+    // Check if it's zlib compressed (starts with magic byte 0x78)
+    if (binary.charCodeAt(0) === 0x78) {
+      const buffer = strToU8(binary, true)
+      const unzipped = unzlibSync(buffer)
+      const data = strFromU8(unzipped)
+      const parsed = JSON.parse(data)
+      return {
+        framework: parsed.framework,
+        version: parsed.destylerVersion,
+      }
+    }
+
+    // Fallback: try parsing as legacy unicode format
+    const decoded = decodeURIComponent(escape(binary))
+    const parsed = JSON.parse(decoded)
+    return {
+      framework: parsed.framework,
+      version: parsed.destylerVersion,
+    }
+  } catch {
+    return {}
+  }
+}
+
+// ============================================================================
+// IMMEDIATE INITIALIZATION - Run as soon as script loads
+// ============================================================================
+// This runs immediately when the script is parsed, before DOMContentLoaded
+;(function immediateInit() {
+  const urlData = getVersionFromUrl()
+
+  // Update variables
+  if (urlData.version && urlData.version !== 'latest') {
+    selectedVersion = urlData.version
+  }
+  if (urlData.framework) {
+    currentFramework = urlData.framework
+    currentPackage = FRAMEWORK_PACKAGE_MAP[urlData.framework] || '@destyler/vue'
+  } else {
+    currentFramework = 'vue'
+    currentPackage = '@destyler/vue'
+  }
+
+  // Update DOM immediately if elements exist
+  const labelEl = document.getElementById('version-label')
+  const pkgLabelEl = document.getElementById('version-pkg-label')
+
+  if (labelEl && selectedVersion !== 'latest') {
+    labelEl.textContent = selectedVersion
+  }
+  if (pkgLabelEl && currentFramework) {
+    pkgLabelEl.textContent = FRAMEWORK_LABEL_MAP[currentFramework] || 'Destyler'
+  }
+
+  // Also update state for other components
+  if (urlData.version) {
+    state.destylerVersion = urlData.version
+  }
+})();
 
 function getElements() {
   return {
@@ -194,7 +336,7 @@ function handleBlur() {
   }
 }
 
-async function loadVersionsForFramework(framework: string) {
+async function loadVersionsForFramework(framework: string, preserveVersion = false) {
   const packageName = FRAMEWORK_PACKAGE_MAP[framework]
   if (!packageName) {
     return
@@ -203,7 +345,13 @@ async function loadVersionsForFramework(framework: string) {
   currentPackage = packageName
   currentFramework = framework
   versions = null
-  selectedVersion = 'latest'
+
+  // Only reset version if not preserving
+  if (!preserveVersion) {
+    selectedVersion = 'latest'
+    state.destylerVersion = 'latest'
+  }
+
   expanded = false
 
   updateUI()
@@ -246,28 +394,60 @@ function initVersionSelect() {
   // Listen for framework restoration from URL (includes version)
   window.addEventListener(EVENTS.URL_FRAMEWORK_RESTORED, function(e: Event) {
     const customEvent = e as CustomEvent<{ framework: string, destylerVersion?: string }>
-    loadVersionsForFramework(customEvent.detail.framework)
 
-    // Restore version from URL if available
+    // Restore version from URL first, before loading framework
     if (customEvent.detail.destylerVersion) {
       selectedVersion = customEvent.detail.destylerVersion
       state.destylerVersion = customEvent.detail.destylerVersion
-      updateUI()
     }
+
+    // Update framework info
+    currentFramework = customEvent.detail.framework
+    currentPackage = FRAMEWORK_PACKAGE_MAP[customEvent.detail.framework] || '@destyler/vue'
+    versions = null
+    expanded = false
+
+    // Update UI immediately with the restored version
+    updateUI()
   })
 
-  // Use setTimeout to wait for state to be restored from URL
-  setTimeout(function() {
-    currentFramework = state.activeFramework
-    currentPackage = FRAMEWORK_PACKAGE_MAP[state.activeFramework] || '@destyler/vue'
+  // Listen for playground state ready event - this fires right after state is restored from URL
+  window.addEventListener(EVENTS.PLAYGROUND_STATE_READY, function(e: Event) {
+    const customEvent = e as CustomEvent<{ framework: string, destylerVersion?: string }>
 
-    // Restore version from state if available
-    if (state.destylerVersion && state.destylerVersion !== 'latest') {
-      selectedVersion = state.destylerVersion
+    currentFramework = customEvent.detail.framework || 'vue'
+    currentPackage = FRAMEWORK_PACKAGE_MAP[currentFramework] || '@destyler/vue'
+
+    if (customEvent.detail.destylerVersion && customEvent.detail.destylerVersion !== 'latest') {
+      selectedVersion = customEvent.detail.destylerVersion
     }
 
     updateUI()
-  }, 150)
+  })
+
+  // First, try to read version directly from URL (most reliable)
+  const urlData = getVersionFromUrl()
+  if (urlData.version && urlData.version !== 'latest') {
+    selectedVersion = urlData.version
+    state.destylerVersion = urlData.version
+  }
+  if (urlData.framework) {
+    currentFramework = urlData.framework
+    currentPackage = FRAMEWORK_PACKAGE_MAP[urlData.framework] || '@destyler/vue'
+  } else {
+    currentFramework = 'vue'
+    currentPackage = '@destyler/vue'
+  }
+
+  // Update UI immediately with URL data
+  const labelEl = document.getElementById('version-label')
+  const pkgLabelEl = document.getElementById('version-pkg-label')
+  if (labelEl) {
+    labelEl.textContent = selectedVersion
+  }
+  if (pkgLabelEl) {
+    pkgLabelEl.textContent = FRAMEWORK_LABEL_MAP[currentFramework] || 'Destyler'
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initVersionSelect)

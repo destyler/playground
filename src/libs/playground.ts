@@ -79,6 +79,14 @@ export async function initPlayground(): Promise<void> {
   const urlState = getStateFromUrl()
   initializeState(urlState)
 
+  // Notify components that state is ready (for version select, etc.)
+  window.dispatchEvent(new CustomEvent('playground:state-ready', {
+    detail: {
+      framework: state.activeFramework,
+      destylerVersion: state.destylerVersion,
+    },
+  }))
+
   // Setup callbacks and event listeners
   setupEditorCallbacks()
   setupEventListeners()
@@ -213,6 +221,13 @@ function setupEventListeners(): void {
   // Listen for framework change from select component
   window.addEventListener('framework:change', ((e: CustomEvent<{ framework: Framework }>) => {
     handleFrameworkChange(e.detail.framework)
+  }) as EventListener)
+
+  // Listen for version change from version select component
+  window.addEventListener('destyler:version-change', ((e: CustomEvent<{ version: string }>) => {
+    state.destylerVersion = e.detail.version
+    scheduleUrlUpdate()
+    scheduleIframeUpdate()
   }) as EventListener)
 }
 

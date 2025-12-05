@@ -27,13 +27,61 @@
   </ul>
 </div>
 
+<!-- Inline script to immediately update UI from URL before main script loads -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script is:inline>
+(function() {
+  try {
+    var hash = window.location.hash;
+    if (!hash || hash === '#') return;
+
+    var serializedState = hash.startsWith('#') ? hash.slice(1) : hash;
+    var binary = atob(serializedState);
+
+    var parsed;
+    // Check if it's zlib compressed (starts with magic byte 0x78)
+    if (binary.charCodeAt(0) === 0x78) {
+      // Convert binary string to Uint8Array
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      // Decompress using pako
+      var decompressed = window.pako.inflate(bytes, { to: 'string' });
+      parsed = JSON.parse(decompressed);
+    } else {
+      // Try parsing as legacy unicode format
+      var decoded = decodeURIComponent(escape(binary));
+      parsed = JSON.parse(decoded);
+    }
+
+    if (parsed && parsed.framework) {
+      var labelEl = document.getElementById('framework-label');
+      var frameworkLabels = {
+        vue: 'Vue',
+        react: 'React',
+        solid: 'Solid',
+        svelte: 'Svelte'
+      };
+      if (labelEl) {
+        labelEl.textContent = frameworkLabels[parsed.framework] || parsed.framework;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse URL state for framework:', e);
+  }
+})();
+</script>
+
 <script>
 import type { Framework } from '../../templates/types'
+import { strFromU8, strToU8, unzlibSync } from 'fflate'
 import { FRAMEWORK_OPTIONS, state } from '../../libs/state'
 
 const EVENTS = {
   FRAMEWORK_CHANGE: 'framework:change',
   URL_FRAMEWORK_RESTORED: 'url:framework-restored',
+  PLAYGROUND_STATE_READY: 'playground:state-ready',
 } as const
 
 const INIT_DELAY = 300
@@ -41,6 +89,54 @@ const INIT_DELAY = 300
 let expanded = false
 let selectedFramework: Framework = state.activeFramework
 let isInitializing = true
+
+/**
+ * Parse framework directly from URL hash
+ */
+function getFrameworkFromUrl(): Framework | null {
+  try {
+    const hash = window.location.hash
+    if (!hash || hash === '#') return null
+
+    const serializedState = hash.startsWith('#') ? hash.slice(1) : hash
+    const binary = atob(serializedState)
+
+    // Check if it's zlib compressed (starts with magic byte 0x78)
+    if (binary.charCodeAt(0) === 0x78) {
+      const buffer = strToU8(binary, true)
+      const unzipped = unzlibSync(buffer)
+      const data = strFromU8(unzipped)
+      const parsed = JSON.parse(data)
+      return parsed.framework as Framework
+    }
+
+    // Fallback: try parsing as legacy unicode format
+    const decoded = decodeURIComponent(escape(binary))
+    const parsed = JSON.parse(decoded)
+    return parsed.framework as Framework
+  } catch {
+    return null
+  }
+}
+
+// ============================================================================
+// IMMEDIATE INITIALIZATION - Run as soon as script loads
+// ============================================================================
+;(function immediateInit() {
+  const urlFramework = getFrameworkFromUrl()
+
+  if (urlFramework) {
+    selectedFramework = urlFramework
+    state.activeFramework = urlFramework
+  }
+
+  // Update DOM immediately if elements exist
+  const labelEl = document.getElementById('framework-label')
+  if (labelEl && selectedFramework) {
+    const option = FRAMEWORK_OPTIONS.find(o => o.value === selectedFramework)
+    labelEl.textContent = option?.label || selectedFramework
+  }
+})();
 
 function getElements() {
   return {
@@ -108,6 +204,22 @@ function setFramework(framework: Framework) {
   renderFrameworkList()
 
   if (!isInitializing) {
+    // Reset version to latest when switching frameworks
+    state.destylerVersion = 'latest'
+
+    // Update version label in UI
+    const versionLabel = document.getElementById('version-label')
+    if (versionLabel) {
+      versionLabel.textContent = 'latest'
+    }
+
+    // Dispatch version change event to update URL
+    window.dispatchEvent(
+      new CustomEvent('destyler:version-change', {
+        detail: { version: 'latest' },
+      })
+    )
+
     window.dispatchEvent(
       new CustomEvent(EVENTS.FRAMEWORK_CHANGE, {
         detail: { framework },
@@ -156,8 +268,22 @@ function initFrameworkSelect() {
   }
   (container as any).__initialized = true
 
-  // Initial render
+  // First, try to read framework directly from URL (most reliable)
+  const urlFramework = getFrameworkFromUrl()
+  if (urlFramework) {
+    selectedFramework = urlFramework
+    state.activeFramework = urlFramework
+  }
+
+  // Initial render with correct framework
   renderFrameworkList()
+
+  // Update UI immediately with URL data
+  const labelEl = document.getElementById('framework-label')
+  if (labelEl) {
+    const option = FRAMEWORK_OPTIONS.find(o => o.value === selectedFramework)
+    labelEl.textContent = option?.label || selectedFramework
+  }
 
   trigger.addEventListener('click', (e) => {
     e.stopPropagation()
@@ -168,19 +294,23 @@ function initFrameworkSelect() {
   window.addEventListener('blur', handleBlur)
   window.addEventListener(EVENTS.URL_FRAMEWORK_RESTORED, handleUrlStateRestore)
 
-  // Sync initial value from state
-  setTimeout(() => {
-    if (state.activeFramework && selectedFramework !== state.activeFramework) {
-      selectedFramework = state.activeFramework
+  // Listen for playground state ready event
+  window.addEventListener(EVENTS.PLAYGROUND_STATE_READY, (e: Event) => {
+    const customEvent = e as CustomEvent<{ framework: Framework }>
+    const framework = customEvent.detail.framework
+    if (framework && selectedFramework !== framework) {
+      isInitializing = true
+      selectedFramework = framework
       updateUI()
       renderFrameworkList()
-    }
-
-    // Mark initialization as complete after a short delay
-    setTimeout(() => {
       isInitializing = false
-    }, INIT_DELAY)
-  }, 100)
+    }
+  })
+
+  // Mark initialization as complete after delay
+  setTimeout(() => {
+    isInitializing = false
+  }, INIT_DELAY)
 }
 
 document.addEventListener('DOMContentLoaded', initFrameworkSelect)
