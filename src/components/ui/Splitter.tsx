@@ -1,7 +1,36 @@
 import type { ReactNode } from 'react'
 import { normalizeProps, useMachine } from '@destyler/react'
 import * as splitter from '@destyler/splitter'
-import { useId } from 'react'
+import { useEffect, useId } from 'react'
+
+const STORAGE_KEY = 'playground-splitter-sizes'
+
+function getSavedSizes(): splitter.PanelSizeData[] | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      return JSON.parse(saved)
+    }
+  }
+  catch {
+    // ignore errors
+  }
+  return null
+}
+
+function getInitialSizes(): splitter.PanelSizeData[] {
+  const saved = getSavedSizes()
+  if (saved) {
+    return saved.map(panel => ({
+      ...panel,
+      minSize: 20,
+    }))
+  }
+  return [
+    { id: 'editor', size: 50, minSize: 20 },
+    { id: 'preview', size: 50, minSize: 20 },
+  ]
+}
 
 interface SplitterProps {
   children?: ReactNode
@@ -11,10 +40,15 @@ export default function Splitter({ children }: SplitterProps) {
   const [state, send] = useMachine(
     splitter.machine({
       id: useId(),
-      size: [
-        { id: 'editor', size: 50, minSize: 20 },
-        { id: 'preview', size: 50, minSize: 20 },
-      ],
+      size: getInitialSizes(),
+      onSizeChange: (details) => {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(details.size))
+        }
+        catch {
+          // ignore errors
+        }
+      },
     }),
   )
 
