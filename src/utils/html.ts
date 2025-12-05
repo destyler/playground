@@ -38,9 +38,9 @@ const CORE_IMPORTS: Readonly<Record<Framework, Record<string, string>>> = {
     'solid-js/web': `${CDN_BASE_URL}/solid-js/web`,
   },
   svelte: {
-    'svelte': `${CDN_BASE_URL}/svelte`,
-    'svelte/compiler': `${CDN_BASE_URL}/svelte/compiler`,
-    'svelte/internal/client': `${CDN_BASE_URL}/svelte/internal/client`,
+    'svelte': `${CDN_BASE_URL}/svelte@5`,
+    'svelte/compiler': `${CDN_BASE_URL}/svelte@5/compiler`,
+    'svelte/internal/client': `${CDN_BASE_URL}/svelte@5/internal/client`,
   },
 }
 

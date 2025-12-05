@@ -91,11 +91,20 @@ export function generateSvelteScript(serializedFiles: string, serializedImportMa
         window.__FILES__ = ${serializedFiles};
         window.__COMPILED_FILES__ = {};
 
+        // Wrap modules with __esModule marker to ensure Babel's _interopRequireWildcard works correctly
+        function wrapModule(mod) {
+          if (!mod || typeof mod !== 'object') return mod;
+          if (mod.__esModule) return mod;
+          return Object.assign({ __esModule: true }, mod);
+        }
+
         const modules = {
-          'svelte': window.Svelte,
-          'svelte/internal/client': window.SvelteInternal,
-          'svelte/internal/disclose-version': { },
-          ...window.__EXTERNAL_MODULES__
+          'svelte': wrapModule(window.Svelte),
+          'svelte/internal/client': wrapModule(window.SvelteInternal),
+          'svelte/internal/disclose-version': { __esModule: true },
+          ...Object.fromEntries(
+            Object.entries(window.__EXTERNAL_MODULES__).map(([k, v]) => [k, wrapModule(v)])
+          )
         };
 
         // Track which modules are currently being loaded to detect circular deps
@@ -220,6 +229,14 @@ export function generateSvelteScript(serializedFiles: string, serializedImportMa
                  });
 
                  console.log('[Svelte] Compiled ' + name + ':', js.code);
+
+                 // Debug: Check if runes were correctly transformed
+                 if (js.code.includes('$state(') || js.code.includes('$derived(') || js.code.includes('$effect(')) {
+                   console.error('[Svelte] WARNING: Raw runes still present in compiled output!');
+                   console.error('[Svelte] This indicates the Svelte compiler did not process runes correctly.');
+                 } else {
+                   console.log('[Svelte] Runes correctly transformed to $.state, $.derived, etc.');
+                 }
 
                  // Transform ESM to CJS
                  const cjsOutput = Babel.transform(js.code, {
