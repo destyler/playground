@@ -13,6 +13,13 @@ export const CONFIG_FILES = {
   IMPORT_MAP: 'import-map.json',
 } as const
 
+/**
+ * Read-only config files (cannot be edited by user)
+ */
+export const READ_ONLY_CONFIG_FILES: readonly string[] = [
+  CONFIG_FILES.IMPORT_MAP,
+] as const
+
 export type ConfigFileName = typeof CONFIG_FILES[keyof typeof CONFIG_FILES]
 
 /**
@@ -43,7 +50,7 @@ export interface PlaygroundState {
   activeConfigFile: ConfigFileName | null
   /** Content of tsconfig.json */
   tsconfigContent: string
-  /** Content of import-map.json */
+  /** Content of import-map.json (read-only, from framework template) */
   importMapContent: string
 }
 

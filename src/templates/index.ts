@@ -1,4 +1,4 @@
-import type { File, Framework, FrameworkTemplate, ImportMap } from './types'
+import type { File, Framework, FrameworkTemplate, UserImportMap } from './types'
 
 import reactImportMap from './react/import-map.json'
 import reactTsconfig from './react/tsconfig.json'
@@ -45,7 +45,7 @@ export const VUE_TEMPLATE: FrameworkTemplate = {
   name: 'Vue',
   defaultFiles: getFilesFromGlob(vueTemplates, 'App.vue'),
   tsconfig: vueTsconfig,
-  importMap: vueImportMap as ImportMap,
+  importMap: vueImportMap as UserImportMap,
 }
 
 /**
@@ -55,7 +55,7 @@ export const REACT_TEMPLATE: FrameworkTemplate = {
   name: 'React',
   defaultFiles: getFilesFromGlob(reactTemplates, 'App.tsx'),
   tsconfig: reactTsconfig,
-  importMap: reactImportMap as ImportMap,
+  importMap: reactImportMap as UserImportMap,
 }
 
 /**
@@ -65,7 +65,7 @@ export const SOLID_TEMPLATE: FrameworkTemplate = {
   name: 'Solid',
   defaultFiles: getFilesFromGlob(solidTemplates, 'App.tsx'),
   tsconfig: solidTsconfig,
-  importMap: solidImportMap as ImportMap,
+  importMap: solidImportMap as UserImportMap,
 }
 
 /**
@@ -75,7 +75,7 @@ export const SVELTE_TEMPLATE: FrameworkTemplate = {
   name: 'Svelte',
   defaultFiles: getFilesFromGlob(svelteTemplates, 'App.svelte'),
   tsconfig: svelteTsconfig,
-  importMap: svelteImportMap as ImportMap,
+  importMap: svelteImportMap as UserImportMap,
 }
 
 /**
@@ -89,4 +89,4 @@ export const FRAMEWORKS: Record<Framework, FrameworkTemplate> = {
 }
 
 // Re-export types for convenience
-export type { File, Framework, FrameworkTemplate, ImportMap }
+export type { File, Framework, FrameworkTemplate, UserImportMap }

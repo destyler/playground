@@ -11,7 +11,7 @@ import SvelteWorker from '../language/workers/svelte.worker?worker'
 import VueWorker from '../language/workers/vue.worker?worker'
 import { FRAMEWORKS } from '../templates'
 import { registerHighlighter } from '../theme/highlighter'
-import { CONFIG_FILES, state } from './state'
+import { CONFIG_FILES, READ_ONLY_CONFIG_FILES, state } from './state'
 
 // ============================================================================
 // Types
@@ -666,6 +666,7 @@ export function getImportMap(): object {
 
 /**
  * Sets editor to show a config file (tsconfig.json or import-map.json)
+ * Note: import-map.json is read-only
  */
 export function setEditorToConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG | typeof CONFIG_FILES.IMPORT_MAP): void {
   if (!editorInstance) return
@@ -685,12 +686,20 @@ export function setEditorToConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG |
   }
 
   editorInstance.setModel(model)
+
+  // Set editor to read-only for import-map.json
+  const isReadOnly = READ_ONLY_CONFIG_FILES.includes(configFile)
+  editorInstance.updateOptions({ readOnly: isReadOnly })
 }
 
 /**
  * Sets editor back to showing a user file
  */
 export function setEditorToUserFile(): void {
+  // Restore editor to editable mode when switching to user files
+  if (editorInstance) {
+    editorInstance.updateOptions({ readOnly: false })
+  }
   updateActiveModel()
 }
 

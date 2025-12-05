@@ -8,8 +8,6 @@
  * @module preview/svelte
  */
 
-
-
 /**
  * Generates the Svelte preview runtime script
  *
@@ -20,15 +18,18 @@
  * - Hot module replacement via message events
  *
  * @param serializedFiles - JSON serialized file contents
+ * @param serializedImportMap - Optional import map for external modules
  * @returns HTML script tags for Svelte runtime
  */
-export function generateSvelteScript(serializedFiles: string) {
+export function generateSvelteScript(serializedFiles: string, serializedImportMap?: string) {
+  const importMapData = serializedImportMap || '{}'
+
   return `
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="module">
-      import { compile } from "https://esm.sh/svelte/compiler";
-      import * as Svelte from "https://esm.sh/svelte";
-      import * as SvelteInternal from "https://esm.sh/svelte/internal/client";
+      import { compile } from "svelte/compiler";
+      import * as Svelte from "svelte";
+      import * as SvelteInternal from "svelte/internal/client";
 
       window.svelteCompile = compile;
       window.Svelte = Svelte;
@@ -37,8 +38,54 @@ export function generateSvelteScript(serializedFiles: string) {
       if (window.Babel) window.startApp();
     </script>
     <script>
+      const importMapData = ${importMapData};
+      const externalModules = importMapData.imports || {};
+
+      // Pre-loaded external modules cache
+      window.__EXTERNAL_MODULES__ = {};
+
+      // Pre-load external modules
+      async function preloadExternalModules() {
+        for (const [moduleName, moduleUrl] of Object.entries(externalModules)) {
+          // Skip core Svelte modules
+          if (moduleName === 'svelte' || moduleName.startsWith('svelte/')) continue;
+
+          try {
+            console.log('[Svelte Playground] Pre-loading:', moduleName, 'from', moduleUrl);
+            const module = await import(moduleUrl);
+            console.log('[Svelte Playground] Raw module:', moduleName, module);
+
+            // Handle different module export formats
+            let normalizedModule;
+
+            if (typeof module.default === 'function') {
+              // Module has a function as default export (like dayjs)
+              normalizedModule = function(...args) {
+                return module.default(...args);
+              };
+              Object.keys(module).forEach(key => {
+                normalizedModule[key] = module[key];
+              });
+              normalizedModule.default = module.default;
+            } else if (module.default !== undefined) {
+              normalizedModule = { ...module };
+            } else {
+              normalizedModule = { ...module, default: module };
+            }
+
+            window.__EXTERNAL_MODULES__[moduleName] = normalizedModule;
+            console.log('[Svelte Playground] Normalized module:', moduleName, 'default:', typeof normalizedModule.default);
+          } catch (e) {
+            console.error('[Svelte Playground] Failed to load:', moduleName, e);
+          }
+        }
+      }
+
       window.startApp = async function() {
         if (!window.svelteCompile || !window.Babel) return;
+
+        // Pre-load external modules first
+        await preloadExternalModules();
 
         let app = null;
         window.__FILES__ = ${serializedFiles};
@@ -48,6 +95,7 @@ export function generateSvelteScript(serializedFiles: string) {
           'svelte': window.Svelte,
           'svelte/internal/client': window.SvelteInternal,
           'svelte/internal/disclose-version': { },
+          ...window.__EXTERNAL_MODULES__
         };
 
         // Track which modules are currently being loaded to detect circular deps

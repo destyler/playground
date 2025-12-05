@@ -1,3 +1,6 @@
 {
-  "imports": {}
+  "name": "solid-playground",
+  "dependencies": {
+
+  }
 }

@@ -1,3 +1,6 @@
 {
-  "imports": {}
+  "name": "svelte-playground",
+  "dependencies": {
+
+  }
 }

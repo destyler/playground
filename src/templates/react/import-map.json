@@ -1,3 +1,6 @@
 {
-  "imports": {}
+  "name": "react-playground",
+  "dependencies": {
+
+  }
 }

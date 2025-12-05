@@ -13,13 +13,16 @@
  * Generates the Solid.js preview runtime script
  *
  * @param serializedFiles - JSON serialized file contents
+ * @param serializedImportMap - Optional import map for external modules
  * @returns HTML script tags for Solid.js runtime
  */
-export function generateSolidScript(serializedFiles: string) {
+export function generateSolidScript(serializedFiles: string, serializedImportMap?: string) {
+  const importMapData = serializedImportMap || '{}'
+
   return `
     <script type="module">
-      import * as SolidJS from "https://esm.sh/solid-js";
-      import * as SolidWeb from "https://esm.sh/solid-js/web";
+      import * as SolidJS from "solid-js";
+      import * as SolidWeb from "solid-js/web";
 
       window.SolidJS = SolidJS;
       window.SolidWeb = SolidWeb;
@@ -35,8 +38,54 @@ export function generateSolidScript(serializedFiles: string) {
       if (window.SolidJS && window.Babel) window.startApp();
     </script>
     <script>
-      window.startApp = function() {
+      const importMapData = ${importMapData};
+      const externalModules = importMapData.imports || {};
+
+      // Pre-loaded external modules cache
+      window.__EXTERNAL_MODULES__ = {};
+
+      // Pre-load external modules
+      async function preloadExternalModules() {
+        for (const [moduleName, moduleUrl] of Object.entries(externalModules)) {
+          // Skip core Solid modules
+          if (moduleName === 'solid-js' || moduleName.startsWith('solid-js/')) continue;
+
+          try {
+            console.log('[Solid Playground] Pre-loading:', moduleName, 'from', moduleUrl);
+            const module = await import(moduleUrl);
+            console.log('[Solid Playground] Raw module:', moduleName, module);
+
+            // Handle different module export formats
+            let normalizedModule;
+
+            if (typeof module.default === 'function') {
+              // Module has a function as default export (like dayjs)
+              normalizedModule = function(...args) {
+                return module.default(...args);
+              };
+              Object.keys(module).forEach(key => {
+                normalizedModule[key] = module[key];
+              });
+              normalizedModule.default = module.default;
+            } else if (module.default !== undefined) {
+              normalizedModule = { ...module };
+            } else {
+              normalizedModule = { ...module, default: module };
+            }
+
+            window.__EXTERNAL_MODULES__[moduleName] = normalizedModule;
+            console.log('[Solid Playground] Normalized module:', moduleName, 'default:', typeof normalizedModule.default);
+          } catch (e) {
+            console.error('[Solid Playground] Failed to load:', moduleName, e);
+          }
+        }
+      }
+
+      window.startApp = async function() {
         if (!window.SolidJS || !window.Babel || !window.babelPresetSolid) return;
+
+        // Pre-load external modules first
+        await preloadExternalModules();
 
         let dispose = null;
         window.__FILES__ = ${serializedFiles};
@@ -45,6 +94,7 @@ export function generateSolidScript(serializedFiles: string) {
         const modules = {
           'solid-js': window.SolidJS,
           'solid-js/web': window.SolidWeb,
+          ...window.__EXTERNAL_MODULES__
         };
 
         function require(id) {
