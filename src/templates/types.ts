@@ -12,8 +12,6 @@ export interface ImportMap {
 
 export interface FrameworkTemplate {
   name: string
-  color: string
-  cdn: string[]
   defaultFiles: File[]
   tsconfig: object
   importMap: ImportMap

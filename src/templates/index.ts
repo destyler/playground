@@ -31,11 +31,6 @@ function getFilesFromGlob(templates: Record<string, string>, activeFileName: str
 
 export const VUE_TEMPLATE: FrameworkTemplate = {
   name: 'Vue',
-  color: '#42b883',
-  cdn: [
-    'https://unpkg.com/vue/dist/vue.global.js',
-    'https://unpkg.com/vue3-sfc-loader/dist/vue3-sfc-loader.js',
-  ],
   defaultFiles: getFilesFromGlob(vueTemplates, 'App.vue'),
   tsconfig: vueTsconfig,
   importMap: vueImportMap as ImportMap,
@@ -43,10 +38,6 @@ export const VUE_TEMPLATE: FrameworkTemplate = {
 
 export const REACT_TEMPLATE: FrameworkTemplate = {
   name: 'React',
-  color: '#61dafb',
-  cdn: [
-    'https://unpkg.com/@babel/standalone/babel.min.js',
-  ],
   defaultFiles: getFilesFromGlob(reactTemplates, 'App.tsx'),
   tsconfig: reactTsconfig,
   importMap: reactImportMap as ImportMap,
@@ -54,8 +45,6 @@ export const REACT_TEMPLATE: FrameworkTemplate = {
 
 export const SOLID_TEMPLATE: FrameworkTemplate = {
   name: 'Solid',
-  color: '#2c4f7c',
-  cdn: [],
   defaultFiles: getFilesFromGlob(solidTemplates, 'App.tsx'),
   tsconfig: solidTsconfig,
   importMap: solidImportMap as ImportMap,
@@ -63,10 +52,6 @@ export const SOLID_TEMPLATE: FrameworkTemplate = {
 
 export const SVELTE_TEMPLATE: FrameworkTemplate = {
   name: 'Svelte',
-  color: '#ff3e00',
-  cdn: [
-    'https://unpkg.com/@babel/standalone/babel.min.js',
-  ],
   defaultFiles: getFilesFromGlob(svelteTemplates, 'App.svelte'),
   tsconfig: svelteTsconfig,
   importMap: svelteImportMap as ImportMap,

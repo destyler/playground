@@ -26,10 +26,21 @@ const CORE_IMPORTS: Record<Framework, Record<string, string>> = {
   },
 }
 
+/**
+ * CDN scripts for each framework
+ */
+const FRAMEWORK_CDNS: Record<Framework, string[]> = {
+  vue: [
+    'https://unpkg.com/vue/dist/vue.global.js',
+    'https://unpkg.com/vue3-sfc-loader/dist/vue3-sfc-loader.js',
+  ],
+  react: [],
+  solid: [],
+  svelte: [],
+}
+
 export function generateHtml(framework: Framework, files: File[], userImportMap?: object) {
-  const config = FRAMEWORKS[framework]
-  const cdns = config.cdn.slice()
-  const cdnScripts = cdns.map((url: string) => `<script src="${url}"></script>`).join('\n')
+  const cdnScripts = FRAMEWORK_CDNS[framework].map((url: string) => `<script src="${url}"></script>`).join('\n')
 
   // Merge core imports with user imports
   // Core imports are fixed and cannot be overridden by user
