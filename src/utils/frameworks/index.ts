@@ -4,10 +4,10 @@ import { solidConfig } from './solid'
 import { svelteConfig } from './svelte'
 import { vueConfig } from './vue'
 
-export * from './types'
 export { reactConfig } from './react'
 export { solidConfig } from './solid'
 export { svelteConfig } from './svelte'
+export * from './types'
 export { vueConfig } from './vue'
 
 /**

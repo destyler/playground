@@ -11,33 +11,34 @@
 </button>
 
 <script>
-  import { refreshPreview } from '../../libs/playground'
+import { refreshPreview } from '../../libs/playground'
 
-  function initResetButton() {
-    const resetBtn = document.getElementById('reset-btn')
-    const resetIcon = document.getElementById('reset-icon')
+function initResetButton() {
+  const resetBtn = document.getElementById('reset-btn')
+  const resetIcon = document.getElementById('reset-icon')
 
-    if (!resetBtn || !resetIcon)
-      return
+  if (!resetBtn || !resetIcon)
+    return
 
-    // Avoid duplicate listeners
-    if ((resetBtn as any).__initialized)
-      return
-    ;(resetBtn as any).__initialized = true
-
-    resetBtn.addEventListener('click', () => {
-      // Refresh the preview iframe
-      refreshPreview()
-
-      // Show feedback animation
-      resetIcon.style.transition = 'transform 0.5s ease'
-      resetIcon.style.transform = 'rotate(-360deg)'
-      setTimeout(() => {
-        resetIcon.style.transform = ''
-      }, 500)
-    })
+  // Avoid duplicate listeners
+  if ((resetBtn as any).__initialized) {
+    return
   }
+  (resetBtn as any).__initialized = true
 
-  document.addEventListener('DOMContentLoaded', initResetButton)
-  document.addEventListener('astro:page-load', initResetButton)
+  resetBtn.addEventListener('click', () => {
+    // Refresh the preview iframe
+    refreshPreview()
+
+    // Show feedback animation
+    resetIcon.style.transition = 'transform 0.5s ease'
+    resetIcon.style.transform = 'rotate(-360deg)'
+    setTimeout(() => {
+      resetIcon.style.transform = ''
+    }, 500)
+  })
+}
+
+document.addEventListener('DOMContentLoaded', initResetButton)
+document.addEventListener('astro:page-load', initResetButton)
 </script>

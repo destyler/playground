@@ -11,48 +11,49 @@
 </button>
 
 <script>
-  import { state } from '../../libs/state'
-  import { copyShareableUrl, updateUrlHash } from '../../utils/url'
+import { state } from '../../libs/state'
+import { copyShareableUrl, updateUrlHash } from '../../utils/url'
 
-  function initShareButton() {
-    const shareBtn = document.getElementById('share-btn')
-    const shareIcon = document.getElementById('share-icon')
+function initShareButton() {
+  const shareBtn = document.getElementById('share-btn')
+  const shareIcon = document.getElementById('share-icon')
 
-    if (!shareBtn || !shareIcon)
-      return
+  if (!shareBtn || !shareIcon)
+    return
 
-    // Avoid duplicate listeners
-    if ((shareBtn as any).__initialized)
-      return
-    ;(shareBtn as any).__initialized = true
-
-    shareBtn.addEventListener('click', async () => {
-      // Force update URL immediately before copying (include config content)
-      updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent)
-
-      const success = await copyShareableUrl()
-
-      if (success) {
-        // Show success feedback
-        const originalClass = shareIcon.className
-        shareIcon.className = 'i-ph-check-duotone text-green-500'
-
-        setTimeout(() => {
-          shareIcon.className = originalClass
-        }, 2000)
-      }
-      else {
-        // Show error feedback
-        const originalClass = shareIcon.className
-        shareIcon.className = 'i-ph-x-duotone text-red-500'
-
-        setTimeout(() => {
-          shareIcon.className = originalClass
-        }, 2000)
-      }
-    })
+  // Avoid duplicate listeners
+  if ((shareBtn as any).__initialized) {
+    return
   }
+  (shareBtn as any).__initialized = true
 
-  document.addEventListener('DOMContentLoaded', initShareButton)
-  document.addEventListener('astro:page-load', initShareButton)
+  shareBtn.addEventListener('click', async () => {
+    // Force update URL immediately before copying (include config content)
+    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent)
+
+    const success = await copyShareableUrl()
+
+    if (success) {
+      // Show success feedback
+      const originalClass = shareIcon.className
+      shareIcon.className = 'i-ph-check-duotone text-green-500'
+
+      setTimeout(() => {
+        shareIcon.className = originalClass
+      }, 2000)
+    }
+    else {
+      // Show error feedback
+      const originalClass = shareIcon.className
+      shareIcon.className = 'i-ph-x-duotone text-red-500'
+
+      setTimeout(() => {
+        shareIcon.className = originalClass
+      }, 2000)
+    }
+  })
+}
+
+document.addEventListener('DOMContentLoaded', initShareButton)
+document.addEventListener('astro:page-load', initShareButton)
 </script>

@@ -53,7 +53,7 @@ function setupThemeObserver() {
   themeObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === 'attributes'
-          && (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
+        && (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
         updateEditorTheme()
         break
       }
@@ -262,16 +262,18 @@ export async function setupLanguageService(framework: Framework, clearModels: bo
           ...config.tsconfig.compilerOptions,
           ...customTsconfig.compilerOptions,
         },
-        ...(config.type === 'vue' && customTsconfig.vueCompilerOptions ? {
-          vueCompilerOptions: {
-            ...config.tsconfig.vueCompilerOptions,
-            ...customTsconfig.vueCompilerOptions,
-          },
-        } : {}),
+        ...(config.type === 'vue' && customTsconfig.vueCompilerOptions
+          ? {
+              vueCompilerOptions: {
+                ...config.tsconfig.vueCompilerOptions,
+                ...customTsconfig.vueCompilerOptions,
+              },
+            }
+          : {}),
       }
     }
     catch (e) {
-      console.warn('[Editor] Failed to parse custom tsconfig, using defaults')
+      console.warn('[Editor] Failed to parse custom tsconfig, using defaults', e)
     }
   }
 
@@ -500,19 +502,11 @@ function getDefaultTsconfig(): object {
  * Initialize config file content in state if not already set
  */
 export function initConfigContent() {
-  console.log('[Editor] initConfigContent called, current state:', {
-    hasTsconfig: !!state.tsconfigContent,
-    hasImportMap: !!state.importMapContent,
-    tsconfigLength: state.tsconfigContent?.length,
-    importMapLength: state.importMapContent?.length,
-  })
   if (!state.tsconfigContent) {
     state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
-    console.log('[Editor] Set default tsconfig')
   }
   if (!state.importMapContent) {
     state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
-    console.log('[Editor] Set default importMap')
   }
 }
 
@@ -520,8 +514,6 @@ export function initConfigContent() {
  * Reset config content when framework changes
  */
 export function resetConfigContent() {
-  console.log('[Editor] resetConfigContent called - resetting tsconfig and importMap!')
-  console.trace('resetConfigContent stack trace')
   state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
   state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
 

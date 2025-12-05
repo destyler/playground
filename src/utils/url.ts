@@ -91,8 +91,6 @@ export function updateUrlHash(framework: Framework, files: File[], tsconfig?: st
     urlState.importMap = importMap
   }
 
-  console.log('[URL] Saving state:', { framework, hasTsconfig: !!tsconfig, hasImportMap: !!importMap, importMapLength: importMap?.length })
-
   const hash = serializeState(urlState)
   history.replaceState(null, '', hash)
 }
@@ -105,7 +103,6 @@ export function getStateFromUrl(): UrlState | null {
     return null
   }
   const result = deserializeState(window.location.hash)
-  console.log('[URL] Loaded state from URL:', { framework: result?.framework, hasTsconfig: !!result?.tsconfig, hasImportMap: !!result?.importMap })
   return result
 }
 

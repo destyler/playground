@@ -40,11 +40,9 @@ export async function initPlayground() {
     // Restore config content if available
     if (urlState.tsconfig) {
       state.tsconfigContent = urlState.tsconfig
-      console.log('[Playground] Restored tsconfig from URL')
     }
     if (urlState.importMap) {
       state.importMapContent = urlState.importMap
-      console.log('[Playground] Restored importMap from URL:', urlState.importMap.substring(0, 100))
     }
 
     // Set flag to prevent handleFrameworkChange from resetting files
@@ -424,10 +422,6 @@ function scheduleUrlUpdate() {
   if (urlUpdateTimer)
     clearTimeout(urlUpdateTimer)
   urlUpdateTimer = setTimeout(() => {
-    console.log('[Playground] scheduleUrlUpdate executing, state:', {
-      tsconfigLength: state.tsconfigContent?.length,
-      importMapLength: state.importMapContent?.length,
-    })
     updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent)
   }, 500)
 }
@@ -466,7 +460,9 @@ function updateIframe() {
   else {
     const importMap = getImportMap()
     iframeRef.srcdoc = generateHtml(state.activeFramework, state.files, importMap)
-    setTimeout(() => { isIframeLoaded = true }, 500)
+    setTimeout(() => {
+      isIframeLoaded = true
+    }, 500)
   }
 }
 

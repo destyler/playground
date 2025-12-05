@@ -149,7 +149,7 @@ function createSnapshot(content: string): IScriptSnapshot {
  */
 function convertSvelteToTs(svelteCode: string, fileName: string): { code: string, scriptStart: number, scriptLength: number } {
   // Extract script content
-  const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi
+  const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/i
   let scriptContent = ''
   let scriptStart = 0
   let scriptLength = 0
@@ -219,7 +219,7 @@ function extractTemplateBindings(svelteCode: string): string {
   const bindings: string[] = []
 
   // Extract {#each} loop variables
-  const eachRegex = /\{#each\s+(\w+)\s+as\s+(\w+)(?:\s*,\s*(\w+))?\}/g
+  const eachRegex = /\{#each\s+(\w+)\s+as\s+(\w+)(?:\s*,\s*(\w+))?\}/
   let match = eachRegex.exec(svelteCode)
   while (match !== null) {
     const [, array, item, index] = match
