@@ -1160,6 +1160,7 @@ async function getIconSvgDataUrl(className: string): Promise<string | null> {
     // 2. mask mode: --un-icon:url("data:image/svg+xml;utf8,%3Csvg...")
     // The URL may be wrapped in double quotes, single quotes, or no quotes
     // And the content after utf8, may contain single quotes in the SVG
+    // eslint-disable-next-line regexp/optimal-quantifier-concatenation
     const match = css.match(/url\(["']?(data:image\/svg\+xml;utf8,[^)]+)["']?\)/)
 
     if (!match) {
