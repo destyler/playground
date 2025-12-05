@@ -1,12 +1,24 @@
 /**
  * Svelte Language Service Worker
  *
- * This worker provides TypeScript language service for Svelte files
- * with full type support from CDN.
+ * Provides TypeScript language service for Svelte 5 files with full type
+ * support from CDN. Uses a simplified Svelte-to-TypeScript conversion since
+ * svelte2tsx depends on Node.js 'path' module which is not available in
+ * browser workers.
  *
- * Note: We use a simplified Svelte-to-TypeScript conversion since svelte2tsx
- * depends on Node.js 'path' module which is not available in browser workers.
+ * Features:
+ * - Svelte 5 runes support ($state, $derived, $effect, etc.)
+ * - TypeScript preprocessing in script blocks
+ * - Component props extraction
+ * - Template binding analysis
+ *
+ * @module language/workers/svelte
  */
+
+// ============================================================================
+// Imports
+// ============================================================================
+
 import type { CodeInformation, CodeMapping, IScriptSnapshot, LanguagePlugin, VirtualCode } from '@volar/language-core'
 import type { FileStat, FileSystem, LanguageServiceEnvironment } from '@volar/monaco/worker'
 import type * as monaco from 'monaco-editor-core'
@@ -19,6 +31,13 @@ import { create as createTypeScriptSemanticPlugin } from 'volar-service-typescri
 import { create as createTypeScriptSyntacticPlugin } from 'volar-service-typescript/lib/plugins/syntactic'
 import { URI } from 'vscode-uri'
 
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+/**
+ * Worker creation data passed from main thread
+ */
 export interface CreateData {
   tsconfig: {
     compilerOptions?: Record<string, any>
@@ -26,21 +45,59 @@ export interface CreateData {
   dependencies: Record<string, string>
 }
 
+/**
+ * Worker host interface for CDN file caching
+ */
 export interface WorkerHost {
   onFetchCdnFile: (uri: string, text: string) => void
 }
 
+/**
+ * Worker initialization message
+ */
 export interface WorkerMessage {
   event: 'init'
   tsVersion: string
   tsLocale?: string
 }
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Regex patterns for Svelte parsing */
+const PATTERNS = {
+  /** Extract script content from Svelte file */
+  script: /<script[^>]*>([\s\S]*?)<\/script>/i,
+  /** Extract {#each} loop variables */
+  each: /\{#each\s+(\w+)\s+as\s+(\w+)(?:\s*,\s*(\w+))?\}/,
+  /** Extract bind: directives */
+  bind: /bind:(\w+)(?:=\{(\w+)\})?/g,
+  /** Extract Svelte 5 $props() syntax */
+  props: /let\s+\{([^}]+)\}(?:\s*:\s*\{([^}]+)\})?\s*=\s*\$props\(\)/,
+  /** Extract Svelte 4 export let syntax */
+  exportLet: /export\s+let\s+(\w+)\s*(?::\s*([^=;]+))?\s*(?:=\s*([^;]+))?/g,
+  /** Match reactive statements */
+  reactive: /^\s*\$:\s*/gm,
+} as const
+
+// ============================================================================
+// URI Converters
+// ============================================================================
+
 const asFileName = (uri: URI) => uri.path
 const asUri = (fileName: string): URI => URI.file(fileName)
 
+// ============================================================================
+// Module State
+// ============================================================================
+
 let ts: typeof import('typescript')
 let locale: string | undefined
+
+// ============================================================================
+// Type Generators
+// ============================================================================
 
 /**
  * Generate Svelte global types for better type inference

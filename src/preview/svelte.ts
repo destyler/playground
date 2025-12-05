@@ -1,8 +1,27 @@
 /**
- * Svelte preview script generator
- * This file only contains the preview runtime script generation
+ * Svelte Preview Runtime Script Generator
+ *
+ * Generates the runtime script for Svelte 5 component compilation and mounting
+ * in the preview iframe. Uses Svelte compiler with runes support and Babel
+ * for TypeScript preprocessing.
+ *
+ * @module preview/svelte
  */
 
+
+
+/**
+ * Generates the Svelte preview runtime script
+ *
+ * Features:
+ * - Svelte 5 runes support
+ * - TypeScript preprocessing in script blocks
+ * - CSS injection
+ * - Hot module replacement via message events
+ *
+ * @param serializedFiles - JSON serialized file contents
+ * @returns HTML script tags for Svelte runtime
+ */
 export function generateSvelteScript(serializedFiles: string) {
   return `
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>

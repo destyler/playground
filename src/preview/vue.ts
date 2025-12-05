@@ -1,3 +1,18 @@
+/**
+ * Vue Preview Runtime Script Generator
+ *
+ * Generates the runtime script for Vue 3 SFC compilation and mounting
+ * in the preview iframe. Uses vue3-sfc-loader for runtime SFC compilation.
+ *
+ * @module preview/vue
+ */
+
+/**
+ * Generates the Vue preview runtime script
+ *
+ * @param serializedFiles - JSON serialized file contents
+ * @returns HTML script tags for Vue runtime
+ */
 export function generateVueScript(serializedFiles: string) {
   return `
     <script type="module">

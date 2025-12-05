@@ -1,8 +1,20 @@
 /**
- * Solid.js preview script generator
- * This file only contains the preview runtime script generation
+ * Solid.js Preview Runtime Script Generator
+ *
+ * Generates the runtime script for Solid.js component compilation and mounting
+ * in the preview iframe. Uses Babel with babel-preset-solid for JSX transformation.
+ *
+ * @module preview/solid
  */
 
+
+
+/**
+ * Generates the Solid.js preview runtime script
+ *
+ * @param serializedFiles - JSON serialized file contents
+ * @returns HTML script tags for Solid.js runtime
+ */
 export function generateSolidScript(serializedFiles: string) {
   return `
     <script type="module">

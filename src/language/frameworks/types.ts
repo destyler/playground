@@ -1,9 +1,17 @@
 import type * as monaco from 'monaco-editor-core'
 
+// ============================================================================
+// Core Types
+// ============================================================================
+
 /**
  * Framework type definition
  */
 export type FrameworkType = 'vue' | 'react' | 'solid' | 'svelte'
+
+// ============================================================================
+// Worker Types
+// ============================================================================
 
 /**
  * Worker host interface for handling CDN files
@@ -29,40 +37,63 @@ export interface WorkerMessage {
   tsLocale: string | undefined
 }
 
+// ============================================================================
+// TypeScript Configuration
+// ============================================================================
+
+/**
+ * TypeScript compiler options for language service
+ */
+export interface TsCompilerOptions {
+  allowJs?: boolean
+  checkJs?: boolean
+  jsx?: string
+  jsxImportSource?: string
+  target?: string
+  module?: string
+  moduleResolution?: string
+  allowImportingTsExtensions?: boolean
+  noEmit?: boolean
+  resolveJsonModule?: boolean
+  isolatedModules?: boolean
+  esModuleInterop?: boolean
+  strict?: boolean
+  skipLibCheck?: boolean
+  lib?: string[]
+}
+
+/**
+ * Vue-specific compiler options
+ */
+export interface VueCompilerOptions {
+  target?: number
+}
+
 /**
  * TypeScript config for language service
  */
 export interface TsConfig {
-  compilerOptions: {
-    allowJs?: boolean
-    checkJs?: boolean
-    jsx?: string
-    jsxImportSource?: string
-    target?: string
-    module?: string
-    moduleResolution?: string
-    allowImportingTsExtensions?: boolean
-    noEmit?: boolean
-    resolveJsonModule?: boolean
-    isolatedModules?: boolean
-    esModuleInterop?: boolean
-    strict?: boolean
-    skipLibCheck?: boolean
-    lib?: string[]
-  }
-  vueCompilerOptions?: {
-    target?: number
-  }
+  compilerOptions: TsCompilerOptions
+  vueCompilerOptions?: VueCompilerOptions
 }
 
+// ============================================================================
+// Language Configuration
+// ============================================================================
+
 /**
- * Language configuration for Monaco
- */export interface LanguageConfig {
+ * Language configuration for Monaco editor
+ */
+export interface LanguageConfig {
   wordPattern?: RegExp
   brackets?: [string, string][]
-  autoClosingPairs?: { open: string, close: string }[]
-  surroundingPairs?: { open: string, close: string }[]
+  autoClosingPairs?: Array<{ open: string, close: string }>
+  surroundingPairs?: Array<{ open: string, close: string }>
 }
+
+// ============================================================================
+// Framework Configuration
+// ============================================================================
 
 /**
  * Framework configuration interface

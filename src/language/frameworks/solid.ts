@@ -1,34 +1,5 @@
 import type { FrameworkConfig, TsConfig } from './types'
-
-/**
- * Solid/TypeScript language configuration for Monaco
- */
-const solidLanguageConfiguration = {
-  wordPattern: /(-?\d*\.\d\w*)|([^`~!@$^&*()=+[\]{}\\|;:'",.<>/\s]+)/g,
-  brackets: [
-    ['{', '}'],
-    ['[', ']'],
-    ['(', ')'],
-  ] as [string, string][],
-  autoClosingPairs: [
-    { open: '{', close: '}' },
-    { open: '[', close: ']' },
-    { open: '(', close: ')' },
-    { open: '"', close: '"' },
-    { open: '\'', close: '\'' },
-    { open: '`', close: '`' },
-    { open: '<', close: '>' },
-  ],
-  surroundingPairs: [
-    { open: '"', close: '"' },
-    { open: '\'', close: '\'' },
-    { open: '`', close: '`' },
-    { open: '{', close: '}' },
-    { open: '[', close: ']' },
-    { open: '(', close: ')' },
-    { open: '<', close: '>' },
-  ],
-}
+import { jsxLanguageConfiguration } from './react'
 
 /**
  * Solid dependencies for CDN type resolution
@@ -86,7 +57,7 @@ export const solidConfig: FrameworkConfig = {
   type: 'solid',
   languageIds: ['javascript', 'typescript', 'jsx', 'tsx'],
   extensions: ['.tsx', '.jsx', '.ts', '.js'],
-  languageConfiguration: solidLanguageConfiguration,
+  languageConfiguration: jsxLanguageConfiguration,
   dependencies: solidDependencies,
   tsconfig: solidTsConfig,
   filePathPrefix: '',

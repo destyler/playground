@@ -1,8 +1,16 @@
 /**
  * Vue Language Service Worker
  *
- * This version follows vuejs/repl implementation for full component props support.
+ * This worker provides full Vue 3 language service with component props support.
+ * Follows vuejs/repl implementation patterns for maximum compatibility.
+ *
+ * @module language/workers/vue
  */
+
+// ============================================================================
+// Imports - External Libraries
+// ============================================================================
+
 import type { Language, LanguageServiceEnvironment } from '@volar/monaco/worker'
 import type { VueCompilerOptions } from '@vue/language-core'
 import type { LanguageService } from '@vue/language-service'
@@ -17,23 +25,38 @@ import {
   VueVirtualCode,
 } from '@vue/language-core'
 import { createVueLanguageServicePlugins } from '@vue/language-service'
-// Import @vue/typescript-plugin helpers
+
+// ============================================================================
+// Imports - Vue TypeScript Plugin Helpers
+// ============================================================================
+
 import { createVueLanguageServiceProxy } from '@vue/typescript-plugin/lib/common'
 import { getComponentDirectives } from '@vue/typescript-plugin/lib/requests/getComponentDirectives'
 import { getComponentEvents } from '@vue/typescript-plugin/lib/requests/getComponentEvents'
 import { getComponentNames } from '@vue/typescript-plugin/lib/requests/getComponentNames'
-
 import { getComponentProps } from '@vue/typescript-plugin/lib/requests/getComponentProps'
 import { getComponentSlots } from '@vue/typescript-plugin/lib/requests/getComponentSlots'
 import { getElementAttrs } from '@vue/typescript-plugin/lib/requests/getElementAttrs'
 import { getElementNames } from '@vue/typescript-plugin/lib/requests/getElementNames'
 import { isRefAtPosition } from '@vue/typescript-plugin/lib/requests/isRefAtPosition'
+
+// ============================================================================
+// Imports - Volar Service Plugins
+// ============================================================================
+
 // @ts-expect-error - worker export
 import * as worker from 'monaco-editor-core/esm/vs/editor/editor.worker'
 import { create as createTypeScriptDirectiveCommentPlugin } from 'volar-service-typescript/lib/plugins/directiveComment'
 import { create as createTypeScriptSemanticPlugin } from 'volar-service-typescript/lib/plugins/semantic'
 import { URI } from 'vscode-uri'
 
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+/**
+ * Worker creation data passed from main thread
+ */
 export interface CreateData {
   tsconfig: {
     compilerOptions?: Record<string, any>
@@ -42,23 +65,55 @@ export interface CreateData {
   dependencies: Record<string, string>
 }
 
+/**
+ * Worker host interface for CDN file caching
+ */
 export interface WorkerHost {
   onFetchCdnFile: (uri: string, text: string) => void
 }
 
+/**
+ * Worker initialization message
+ */
 export interface WorkerMessage {
   event: 'init'
   tsVersion: string
   tsLocale?: string
 }
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Vue service plugins to ignore */
+const IGNORED_VUE_PLUGINS = new Set([
+  'vue-extract-file',
+  'vue-document-drop',
+  'vue-document-highlights',
+  'typescript-semantic-tokens',
+])
+
+// ============================================================================
+// URI Converters
+// ============================================================================
+
 const asFileName = (uri: URI) => uri.path
 const asUri = (fileName: string): URI => URI.file(fileName)
+
+// ============================================================================
+// Module State
+// ============================================================================
 
 let ts: typeof import('typescript')
 let locale: string | undefined
 
-// Handle init message to load TypeScript
+// ============================================================================
+// Message Handler
+// ============================================================================
+
+/**
+ * Handle initialization and Monaco worker messages
+ */
 globalThis.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
   if (msg.data?.event === 'init') {
     locale = msg.data.tsLocale
@@ -332,14 +387,8 @@ globalThis.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
           },
         })
 
-        const ignoreVueServicePlugins = new Set([
-          'vue-extract-file',
-          'vue-document-drop',
-          'vue-document-highlights',
-          'typescript-semantic-tokens',
-        ])
         return plugins.filter(
-          plugin => !ignoreVueServicePlugins.has(plugin.name!),
+          plugin => !IGNORED_VUE_PLUGINS.has(plugin.name!),
         )
 
         function getVirtualCode(fileName: string) {

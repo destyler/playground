@@ -1,9 +1,17 @@
 /**
- * Solid Language Service Worker
+ * Solid.js Language Service Worker
  *
- * This worker provides TypeScript language service for Solid/TSX files
- * with full type support from CDN.
+ * Provides TypeScript language service for Solid.js/TSX files with full type
+ * support from CDN. Handles module resolution for both user files and
+ * node_modules dependencies.
+ *
+ * @module language/workers/solid
  */
+
+// ============================================================================
+// Imports
+// ============================================================================
+
 import type { FileStat, FileSystem, LanguageServiceEnvironment } from '@volar/monaco/worker'
 import type * as monaco from 'monaco-editor-core'
 import { createNpmFileSystem } from '@volar/jsdelivr'
@@ -15,6 +23,13 @@ import { create as createTypeScriptSemanticPlugin } from 'volar-service-typescri
 import { create as createTypeScriptSyntacticPlugin } from 'volar-service-typescript/lib/plugins/syntactic'
 import { URI } from 'vscode-uri'
 
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+/**
+ * Worker creation data passed from main thread
+ */
 export interface CreateData {
   tsconfig: {
     compilerOptions?: Record<string, any>
@@ -22,21 +37,46 @@ export interface CreateData {
   dependencies: Record<string, string>
 }
 
+/**
+ * Worker host interface for CDN file caching
+ */
 export interface WorkerHost {
   onFetchCdnFile: (uri: string, text: string) => void
 }
 
+/**
+ * Worker initialization message
+ */
 export interface WorkerMessage {
   event: 'init'
   tsVersion: string
   tsLocale?: string
 }
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Path for Solid global types */
+const SOLID_GLOBAL_TYPES_PATH = '/node_modules/solid-global.d.ts'
+
+// ============================================================================
+// URI Converters
+// ============================================================================
+
 const asFileName = (uri: URI) => uri.path
 const asUri = (fileName: string): URI => URI.file(fileName)
 
+// ============================================================================
+// Module State
+// ============================================================================
+
 let ts: typeof import('typescript')
 let locale: string | undefined
+
+// ============================================================================
+// Type Generators
+// ============================================================================
 
 /**
  * Generate Solid global types for better type inference

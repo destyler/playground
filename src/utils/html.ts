@@ -1,14 +1,19 @@
 import type { File, Framework } from '../templates'
+import type { ImportMap } from '../templates/types'
 import { generateReactScript } from '../preview/react'
 import { generateSolidScript } from '../preview/solid'
 import { generateSvelteScript } from '../preview/svelte'
 import { generateVueScript } from '../preview/vue'
-import { FRAMEWORKS } from '../templates'
+
+// ============================================================================
+// Constants
+// ============================================================================
 
 /**
  * Core dependencies for each framework (fixed, not user-modifiable)
+ * These are essential runtime dependencies that must be present
  */
-const CORE_IMPORTS: Record<Framework, Record<string, string>> = {
+const CORE_IMPORTS: Readonly<Record<Framework, Record<string, string>>> = {
   vue: {
     vue: 'https://esm.sh/vue',
   },
@@ -27,9 +32,9 @@ const CORE_IMPORTS: Record<Framework, Record<string, string>> = {
 }
 
 /**
- * CDN scripts for each framework
+ * CDN scripts required for each framework's runtime
  */
-const FRAMEWORK_CDNS: Record<Framework, string[]> = {
+const FRAMEWORK_CDNS: Readonly<Record<Framework, readonly string[]>> = {
   vue: [
     'https://unpkg.com/vue/dist/vue.global.js',
     'https://unpkg.com/vue3-sfc-loader/dist/vue3-sfc-loader.js',
@@ -39,46 +44,30 @@ const FRAMEWORK_CDNS: Record<Framework, string[]> = {
   svelte: [],
 }
 
-export function generateHtml(framework: Framework, files: File[], userImportMap?: object) {
-  const cdnScripts = FRAMEWORK_CDNS[framework].map((url: string) => `<script src="${url}"></script>`).join('\n')
+/**
+ * Script generators for each framework
+ */
+const SCRIPT_GENERATORS: Readonly<Record<Framework, (serializedFiles: string) => string>> = {
+  vue: generateVueScript,
+  react: generateReactScript,
+  solid: generateSolidScript,
+  svelte: generateSvelteScript,
+}
 
-  // Merge core imports with user imports
-  // Core imports are fixed and cannot be overridden by user
-  const coreImports = CORE_IMPORTS[framework]
-  const userImports = (userImportMap as any)?.imports || {}
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
-  // Filter out core dependencies from user imports (prevent override)
-  const filteredUserImports: Record<string, string> = {}
-  for (const [key, value] of Object.entries(userImports)) {
-    if (!(key in coreImports)) {
-      filteredUserImports[key] = value as string
-    }
-  }
-
-  // Combine: core imports + user imports
-  const finalImportMap = {
-    imports: {
-      ...coreImports,
-      ...filteredUserImports,
-    },
-  }
-
-  const importMapScript = `<script type="importmap">${JSON.stringify(finalImportMap)}</script>`
-
-  const filesMap = files.reduce((acc, file) => {
-    acc[file.name] = file.content
-    return acc
-  }, {} as Record<string, string>)
-
-  const serializedFiles = JSON.stringify(filesMap).replace(/<\//g, '\\x3C/')
-
-  const errorHandling = `
+/**
+ * Creates the error handling script for the preview iframe
+ */
+function createErrorHandlingScript(): string {
+  return `
     <script>
       // Error overlay container
       window.__errorOverlay__ = null;
 
       function showError(message, stack) {
-        // Create or reuse error overlay
         if (!window.__errorOverlay__) {
           window.__errorOverlay__ = document.createElement('div');
           window.__errorOverlay__.id = '__error_overlay__';
@@ -96,7 +85,7 @@ export function generateHtml(framework: Framework, files: File[], userImportMap?
         }
       }
 
-      // Expose functions globally so update functions can call them
+      // Expose functions globally for update functions
       window.__clearError__ = clearError;
       window.__showError__ = showError;
 
@@ -119,21 +108,75 @@ export function generateHtml(framework: Framework, files: File[], userImportMap?
       };
     </script>
   `
+}
 
-  let scriptContent = ''
+/**
+ * Merges core imports with user-provided imports
+ * Core imports cannot be overridden by user
+ */
+function mergeImportMaps(
+  coreImports: Record<string, string>,
+  userImportMap?: ImportMap,
+): ImportMap {
+  const userImports = userImportMap?.imports ?? {}
 
-  if (framework === 'vue') {
-    scriptContent = generateVueScript(serializedFiles)
+  // Filter out core dependencies from user imports (prevent override)
+  const filteredUserImports: Record<string, string> = {}
+  for (const [key, value] of Object.entries(userImports)) {
+    if (!(key in coreImports)) {
+      filteredUserImports[key] = value
+    }
   }
-  else if (framework === 'react') {
-    scriptContent = generateReactScript(serializedFiles)
+
+  return {
+    imports: {
+      ...coreImports,
+      ...filteredUserImports,
+    },
   }
-  else if (framework === 'solid') {
-    scriptContent = generateSolidScript(serializedFiles)
-  }
-  else if (framework === 'svelte') {
-    scriptContent = generateSvelteScript(serializedFiles)
-  }
+}
+
+/**
+ * Converts file array to a serialized map string for embedding in HTML
+ */
+function serializeFilesToMap(files: File[]): string {
+  const filesMap = files.reduce<Record<string, string>>((acc, file) => {
+    acc[file.name] = file.content
+    return acc
+  }, {})
+
+  // Escape closing script tags to prevent HTML parsing issues
+  return JSON.stringify(filesMap).replace(/<\//g, '\\x3C/')
+}
+
+// ============================================================================
+// Main Export
+// ============================================================================
+
+/**
+ * Generates the complete HTML document for the preview iframe
+ *
+ * @param framework - The current framework
+ * @param files - Array of files to include
+ * @param userImportMap - Optional user-defined import map
+ * @returns Complete HTML string
+ */
+export function generateHtml(
+  framework: Framework,
+  files: File[],
+  userImportMap?: object,
+): string {
+  const coreImports = CORE_IMPORTS[framework]
+  const finalImportMap = mergeImportMaps(coreImports, userImportMap as ImportMap | undefined)
+  const importMapScript = `<script type="importmap">${JSON.stringify(finalImportMap)}</script>`
+
+  const cdnScripts = FRAMEWORK_CDNS[framework]
+    .map(url => `<script src="${url}"></script>`)
+    .join('\n')
+
+  const serializedFiles = serializeFilesToMap(files)
+  const errorHandling = createErrorHandlingScript()
+  const scriptContent = SCRIPT_GENERATORS[framework](serializedFiles)
 
   return `
 <!DOCTYPE html>

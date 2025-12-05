@@ -7,20 +7,29 @@ import solidTsconfig from './solid/tsconfig.json'
 import svelteImportMap from './svelte/import-map.json'
 import svelteTsconfig from './svelte/tsconfig.json'
 import vueImportMap from './vue/import-map.json'
-// 读取配置文件
 import vueTsconfig from './vue/tsconfig.json'
 
-// 使用 import.meta.glob 读取模板文件
+// Template file imports using Vite's glob import
 const vueTemplates = import.meta.glob('./vue/*', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 const reactTemplates = import.meta.glob('./react/*', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 const solidTemplates = import.meta.glob('./solid/*', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 const svelteTemplates = import.meta.glob('./svelte/*', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 
+/**
+ * File extensions to exclude from template loading (config files)
+ */
+const EXCLUDED_EXTENSIONS = ['.json']
+
+/**
+ * Converts glob import results to File array
+ * @param templates - Glob import result
+ * @param activeFileName - Name of the file to mark as active
+ */
 function getFilesFromGlob(templates: Record<string, string>, activeFileName: string): File[] {
   return Object.entries(templates)
-    .filter(([path]) => !path.endsWith('.json')) // 排除 JSON 配置文件
+    .filter(([path]) => !EXCLUDED_EXTENSIONS.some(ext => path.endsWith(ext)))
     .map(([path, content]) => {
-      const name = path.split('/').pop() || ''
+      const name = path.split('/').pop() ?? ''
       return {
         name,
         content,
@@ -29,6 +38,9 @@ function getFilesFromGlob(templates: Record<string, string>, activeFileName: str
     })
 }
 
+/**
+ * Vue framework template
+ */
 export const VUE_TEMPLATE: FrameworkTemplate = {
   name: 'Vue',
   defaultFiles: getFilesFromGlob(vueTemplates, 'App.vue'),
@@ -36,6 +48,9 @@ export const VUE_TEMPLATE: FrameworkTemplate = {
   importMap: vueImportMap as ImportMap,
 }
 
+/**
+ * React framework template
+ */
 export const REACT_TEMPLATE: FrameworkTemplate = {
   name: 'React',
   defaultFiles: getFilesFromGlob(reactTemplates, 'App.tsx'),
@@ -43,6 +58,9 @@ export const REACT_TEMPLATE: FrameworkTemplate = {
   importMap: reactImportMap as ImportMap,
 }
 
+/**
+ * Solid framework template
+ */
 export const SOLID_TEMPLATE: FrameworkTemplate = {
   name: 'Solid',
   defaultFiles: getFilesFromGlob(solidTemplates, 'App.tsx'),
@@ -50,6 +68,9 @@ export const SOLID_TEMPLATE: FrameworkTemplate = {
   importMap: solidImportMap as ImportMap,
 }
 
+/**
+ * Svelte framework template
+ */
 export const SVELTE_TEMPLATE: FrameworkTemplate = {
   name: 'Svelte',
   defaultFiles: getFilesFromGlob(svelteTemplates, 'App.svelte'),
@@ -57,6 +78,9 @@ export const SVELTE_TEMPLATE: FrameworkTemplate = {
   importMap: svelteImportMap as ImportMap,
 }
 
+/**
+ * Registry of all framework templates
+ */
 export const FRAMEWORKS: Record<Framework, FrameworkTemplate> = {
   vue: VUE_TEMPLATE,
   react: REACT_TEMPLATE,
@@ -64,4 +88,5 @@ export const FRAMEWORKS: Record<Framework, FrameworkTemplate> = {
   svelte: SVELTE_TEMPLATE,
 }
 
+// Re-export types for convenience
 export type { File, Framework, FrameworkTemplate, ImportMap }

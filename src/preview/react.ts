@@ -1,8 +1,20 @@
 /**
- * React preview script generator
- * This file only contains the preview runtime script generation
+ * React Preview Runtime Script Generator
+ *
+ * Generates the runtime script for React component compilation and mounting
+ * in the preview iframe. Uses Babel for runtime JSX/TypeScript transformation.
+ *
+ * @module preview/react
  */
 
+
+
+/**
+ * Generates the React preview runtime script
+ *
+ * @param serializedFiles - JSON serialized file contents
+ * @returns HTML script tags for React runtime
+ */
 export function generateReactScript(serializedFiles: string) {
   return `
     <script type="module">

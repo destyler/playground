@@ -2,22 +2,68 @@ import type { File, Framework } from '../templates'
 import { FRAMEWORKS } from '../templates'
 import { generateHtml } from '../utils/html'
 import { getStateFromUrl, recordToFiles, updateUrlHash } from '../utils/url'
-import { disposeOldModel, getImportMap, initConfigContent, initEditor, onEditorConfigChange, onEditorFileChange, refreshLanguageService, resetConfigContent, setEditorToConfigFile, setEditorToUserFile, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
-import { IMPORT_MAP_FILE, state, TSCONFIG_FILE } from './state'
+import {
+  disposeOldModel,
+  getImportMap,
+  initConfigContent,
+  initEditor,
+  onEditorConfigChange,
+  onEditorFileChange,
+  refreshLanguageService,
+  resetConfigContent,
+  setEditorToConfigFile,
+  setEditorToUserFile,
+  setupLanguageService,
+  syncFilesToModels,
+  updateActiveModel,
+} from './editor'
+import { CONFIG_FILES, state } from './state'
 
-// Playground variables
+// ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * Debounce delays in milliseconds
+ */
+const DEBOUNCE_DELAYS = {
+  IFRAME_UPDATE: 1000,
+  URL_UPDATE: 500,
+  TSCONFIG_UPDATE: 1000,
+  CLICK: 200,
+  URL_RESTORE: 100,
+  URL_RESTORE_COMPLETE: 200,
+  IFRAME_LOAD: 500,
+} as const
+
+/**
+ * Default framework when no URL state is present
+ */
+const DEFAULT_FRAMEWORK: Framework = 'vue'
+
+// ============================================================================
+// Module State
+// ============================================================================
+
 let iframeRef: HTMLIFrameElement | null = null
 let isIframeLoaded = false
-let previousFramework: Framework = 'vue'
+let previousFramework: Framework = DEFAULT_FRAMEWORK
+let isRestoringFromUrl = false
+
+// Debounce timers
 let updateTimer: ReturnType<typeof setTimeout> | null = null
 let urlUpdateTimer: ReturnType<typeof setTimeout> | null = null
 let tsconfigUpdateTimer: ReturnType<typeof setTimeout> | null = null
-let isRestoringFromUrl = false
+
+// ============================================================================
+// Initialization
+// ============================================================================
 
 /**
- * Initialize the playground
+ * Initializes the playground application
+ * Sets up the editor, preview iframe, and event listeners
  */
-export async function initPlayground() {
+export async function initPlayground(): Promise<void> {
   iframeRef = document.getElementById('preview-iframe') as HTMLIFrameElement
   const fileTabsContainer = document.getElementById('file-tabs')
 
@@ -26,72 +72,117 @@ export async function initPlayground() {
     return
   }
 
-  // Try to load state from URL first
+  // Initialize state from URL or use defaults
   const urlState = getStateFromUrl()
+  initializeState(urlState)
 
+  // Setup callbacks and event listeners
+  setupEditorCallbacks()
+  setupEventListeners()
+
+  // Initialize UI
+  initConfigContent()
+  renderFileTabs()
+  setupConfigButtons()
+  updateIframe()
+
+  // Initialize editor
+  await initEditor()
+
+  // Handle special case for non-default framework from URL
+  if (urlState && urlState.framework !== DEFAULT_FRAMEWORK) {
+    await setupLanguageService(urlState.framework, true)
+    syncFilesToModels()
+    updateActiveModel()
+  }
+}
+
+/**
+ * Initializes state from URL or sets defaults
+ */
+function initializeState(urlState: ReturnType<typeof getStateFromUrl>): void {
   if (urlState) {
-    // Restore state from URL
-    const framework = urlState.framework
-    const files = recordToFiles(urlState.files)
-
-    state.activeFramework = framework
-    state.files = files.length > 0 ? files : FRAMEWORKS[framework].defaultFiles
-    state.activeFile = state.files.find(f => f.active)?.name || state.files[0].name
-
-    // Restore config content if available
-    if (urlState.tsconfig) {
-      state.tsconfigContent = urlState.tsconfig
-    }
-    if (urlState.importMap) {
-      state.importMapContent = urlState.importMap
-    }
-
-    // Set flag to prevent handleFrameworkChange from resetting files
-    isRestoringFromUrl = true
-
-    // Notify Select component about the framework change
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('url:framework-restored', {
-        detail: { framework },
-      }))
-      // Reset flag after a short delay to allow Select to update
-      setTimeout(() => {
-        isRestoringFromUrl = false
-      }, 200)
-    }, 100)
+    restoreStateFromUrl(urlState)
   }
   else {
-    // Set default state
-    state.activeFramework = 'vue'
-    state.files = FRAMEWORKS.vue.defaultFiles
-    state.activeFile = FRAMEWORKS.vue.defaultFiles.find(f => f.active)?.name || FRAMEWORKS.vue.defaultFiles[0].name
+    setDefaultState()
+  }
+}
+
+/**
+ * Restores state from URL parameters
+ */
+function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFromUrl>>): void {
+  const { framework, files: filesRecord, tsconfig, importMap } = urlState
+  const files = recordToFiles(filesRecord)
+
+  state.activeFramework = framework
+  state.files = files.length > 0 ? files : FRAMEWORKS[framework].defaultFiles
+  state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
+
+  if (tsconfig) {
+    state.tsconfigContent = tsconfig
+  }
+  if (importMap) {
+    state.importMapContent = importMap
   }
 
-  // Setup callbacks
+  // Prevent handleFrameworkChange from resetting files
+  isRestoringFromUrl = true
+
+  // Notify Select component about the framework change
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent('url:framework-restored', {
+      detail: { framework },
+    }))
+    setTimeout(() => {
+      isRestoringFromUrl = false
+    }, DEBOUNCE_DELAYS.URL_RESTORE_COMPLETE)
+  }, DEBOUNCE_DELAYS.URL_RESTORE)
+}
+
+/**
+ * Sets the default state for a fresh playground
+ */
+function setDefaultState(): void {
+  state.activeFramework = DEFAULT_FRAMEWORK
+  state.files = FRAMEWORKS[DEFAULT_FRAMEWORK].defaultFiles
+  state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
+}
+
+// ============================================================================
+// Event Setup
+// ============================================================================
+
+/**
+ * Sets up editor change callbacks
+ */
+function setupEditorCallbacks(): void {
   onEditorFileChange(() => {
     renderFileTabs()
     scheduleIframeUpdate()
     scheduleUrlUpdate()
   })
 
-  // Setup config file change callback
-  onEditorConfigChange((configFile, _content) => {
-    if (configFile === IMPORT_MAP_FILE) {
+  onEditorConfigChange((configFile) => {
+    if (configFile === CONFIG_FILES.IMPORT_MAP) {
       // Import map changed - need to reload iframe
       isIframeLoaded = false
       scheduleIframeUpdate()
       scheduleUrlUpdate()
     }
-    else if (configFile === TSCONFIG_FILE) {
-      // tsconfig changed - schedule language service refresh with debounce
+    else if (configFile === CONFIG_FILES.TSCONFIG) {
+      // tsconfig changed - schedule language service refresh
       scheduleTsconfigUpdate()
       scheduleUrlUpdate()
     }
   })
+}
 
-  // Initialize config content
-  initConfigContent()
-
+/**
+ * Sets up window event listeners
+ */
+function setupEventListeners(): void {
   // Listen for file selection from editor (go to definition)
   window.addEventListener('editor:file-selected', () => {
     renderFileTabs()
@@ -101,27 +192,16 @@ export async function initPlayground() {
   window.addEventListener('framework:change', ((e: CustomEvent<{ framework: Framework }>) => {
     handleFrameworkChange(e.detail.framework)
   }) as EventListener)
-
-  // Setup UI
-  renderFileTabs()
-  setupConfigButtons()
-  updateIframe()
-
-  // Initialize editor with correct framework
-  await initEditor()
-
-  // If we have URL state with a specific framework, setup language service for it
-  if (urlState && urlState.framework !== 'vue') {
-    await setupLanguageService(urlState.framework, true)
-    syncFilesToModels()
-    updateActiveModel()
-  }
 }
 
+// ============================================================================
+// Framework Handling
+// ============================================================================
+
 /**
- * Handle framework change
+ * Handles framework change from the UI
  */
-async function handleFrameworkChange(framework: Framework) {
+async function handleFrameworkChange(framework: Framework): Promise<void> {
   // Skip if we're restoring from URL (files are already set)
   if (isRestoringFromUrl) {
     return
@@ -129,7 +209,7 @@ async function handleFrameworkChange(framework: Framework) {
 
   state.activeFramework = framework
   state.files = FRAMEWORKS[framework].defaultFiles
-  state.activeFile = state.files.find(f => f.active)?.name || state.files[0].name
+  state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
   state.activeConfigFile = null
 
   // Reset config content for new framework
@@ -146,159 +226,190 @@ async function handleFrameworkChange(framework: Framework) {
   scheduleUrlUpdate()
 }
 
+// ============================================================================
+// File Tab UI
+// ============================================================================
+
 /**
- * Render file tabs
+ * Renders the file tabs in the editor header
  */
-export function renderFileTabs() {
+export function renderFileTabs(): void {
   const container = document.getElementById('file-tabs')
-  if (!container)
-    return
+  if (!container) return
 
   container.innerHTML = ''
 
-  state.files.forEach((file: File) => {
-    const tab = document.createElement('button')
-    // When config file is active, no user file tab should be active
-    const isActive = state.activeConfigFile === null && state.activeFile === file.name
-    tab.className = `file-tab${isActive ? ' active' : ''}`
-    tab.dataset.fileName = file.name
-
-    const nameSpan = document.createElement('span')
-    nameSpan.className = 'file-tab-name'
-    nameSpan.textContent = file.name
-    tab.appendChild(nameSpan)
-
-    // Don't show delete button for App files (main entry file)
-    const isMainFile = file.name.startsWith('App.')
-    if (state.files.length > 1 && !isMainFile) {
-      const closeBtn = document.createElement('button')
-      closeBtn.className = 'file-tab-close'
-      closeBtn.textContent = '✕'
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation()
-        deleteFile(file.name)
-      })
-      tab.appendChild(closeBtn)
-    }
-
-    // 使用防抖处理点击，避免干扰双击事件
-    let clickTimer: ReturnType<typeof setTimeout> | null = null
-    tab.addEventListener('click', () => {
-      if (clickTimer) {
-        clearTimeout(clickTimer)
-        clickTimer = null
-        return
-      }
-      clickTimer = setTimeout(() => {
-        clickTimer = null
-        // Clear config file selection when clicking user file
-        if (state.activeConfigFile !== null) {
-          state.activeConfigFile = null
-          updateConfigButtonStates()
-        }
-        if (state.activeFile !== file.name) {
-          state.activeFile = file.name
-          setEditorToUserFile()
-          renderFileTabs()
-        }
-        else if (state.activeConfigFile === null) {
-          // Re-render to ensure user file tab is active
-          setEditorToUserFile()
-          renderFileTabs()
-        }
-      }, 200)
-    })
-
-    tab.addEventListener('dblclick', () => {
-      if (clickTimer) {
-        clearTimeout(clickTimer)
-        clickTimer = null
-      }
-      // Don't allow renaming App files
-      if (!file.name.startsWith('App.')) {
-        startRenaming(file.name, tab)
-      }
-    })
-
+  for (const file of state.files) {
+    const tab = createFileTab(file)
     container.appendChild(tab)
+  }
+
+  const addBtn = createAddFileButton()
+  container.appendChild(addBtn)
+}
+
+/**
+ * Creates a file tab element
+ */
+function createFileTab(file: File): HTMLButtonElement {
+  const tab = document.createElement('button')
+  const isActive = state.activeConfigFile === null && state.activeFile === file.name
+  tab.className = `file-tab${isActive ? ' active' : ''}`
+  tab.dataset.fileName = file.name
+
+  // File name span
+  const nameSpan = document.createElement('span')
+  nameSpan.className = 'file-tab-name'
+  nameSpan.textContent = file.name
+  tab.appendChild(nameSpan)
+
+  // Close button (only for non-main files when multiple files exist)
+  const isMainFile = file.name.startsWith('App.')
+  if (state.files.length > 1 && !isMainFile) {
+    const closeBtn = createCloseButton(file.name)
+    tab.appendChild(closeBtn)
+  }
+
+  // Click handlers with debounce to avoid interfering with double-click
+  setupTabClickHandlers(tab, file)
+
+  return tab
+}
+
+/**
+ * Creates a close button for file tabs
+ */
+function createCloseButton(fileName: string): HTMLButtonElement {
+  const closeBtn = document.createElement('button')
+  closeBtn.className = 'file-tab-close'
+  closeBtn.textContent = '✕'
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    deleteFile(fileName)
+  })
+  return closeBtn
+}
+
+/**
+ * Sets up click handlers for file tabs
+ */
+function setupTabClickHandlers(tab: HTMLButtonElement, file: File): void {
+  let clickTimer: ReturnType<typeof setTimeout> | null = null
+
+  tab.addEventListener('click', () => {
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+      clickTimer = null
+      return
+    }
+    clickTimer = setTimeout(() => {
+      clickTimer = null
+      handleFileTabClick(file.name)
+    }, DEBOUNCE_DELAYS.CLICK)
   })
 
+  tab.addEventListener('dblclick', () => {
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+      clickTimer = null
+    }
+    // Don't allow renaming App files
+    if (!file.name.startsWith('App.')) {
+      startRenaming(file.name, tab)
+    }
+  })
+}
+
+/**
+ * Handles file tab click
+ */
+function handleFileTabClick(fileName: string): void {
+  // Clear config file selection when clicking user file
+  if (state.activeConfigFile !== null) {
+    state.activeConfigFile = null
+    updateConfigButtonStates()
+  }
+  if (state.activeFile !== fileName) {
+    state.activeFile = fileName
+    setEditorToUserFile()
+    renderFileTabs()
+  }
+  else if (state.activeConfigFile === null) {
+    // Re-render to ensure user file tab is active
+    setEditorToUserFile()
+    renderFileTabs()
+  }
+}
+
+/**
+ * Creates the add file button
+ */
+function createAddFileButton(): HTMLButtonElement {
   const addBtn = document.createElement('button')
   addBtn.className = 'add-file-btn'
   addBtn.textContent = '+'
   addBtn.title = 'New File'
   addBtn.addEventListener('click', addNewFile)
-  container.appendChild(addBtn)
+  return addBtn
 }
 
+// ============================================================================
+// Config Buttons UI
+// ============================================================================
+
 /**
- * Setup config buttons (tsconfig.json and import-map.json)
+ * Sets up config buttons (tsconfig.json and import-map.json)
  */
-function setupConfigButtons() {
+function setupConfigButtons(): void {
   const tsconfigBtn = document.getElementById('tsconfig-btn')
   const importMapBtn = document.getElementById('import-map-btn')
 
-  if (tsconfigBtn) {
-    tsconfigBtn.addEventListener('click', () => {
-      if (state.activeConfigFile === TSCONFIG_FILE) {
-        // Toggle off - go back to user file
-        state.activeConfigFile = null
-        setEditorToUserFile()
-      }
-      else {
-        state.activeConfigFile = TSCONFIG_FILE
-        setEditorToConfigFile(TSCONFIG_FILE)
-      }
-      updateConfigButtonStates()
-      renderFileTabs()
-    })
-  }
-
-  if (importMapBtn) {
-    importMapBtn.addEventListener('click', () => {
-      if (state.activeConfigFile === IMPORT_MAP_FILE) {
-        // Toggle off - go back to user file
-        state.activeConfigFile = null
-        setEditorToUserFile()
-      }
-      else {
-        state.activeConfigFile = IMPORT_MAP_FILE
-        setEditorToConfigFile(IMPORT_MAP_FILE)
-      }
-      updateConfigButtonStates()
-      renderFileTabs()
-    })
-  }
+  tsconfigBtn?.addEventListener('click', () => toggleConfigFile(CONFIG_FILES.TSCONFIG))
+  importMapBtn?.addEventListener('click', () => toggleConfigFile(CONFIG_FILES.IMPORT_MAP))
 }
 
 /**
- * Update config button active states
+ * Toggles a config file in the editor
  */
-function updateConfigButtonStates() {
+function toggleConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG | typeof CONFIG_FILES.IMPORT_MAP): void {
+  if (state.activeConfigFile === configFile) {
+    // Toggle off - go back to user file
+    state.activeConfigFile = null
+    setEditorToUserFile()
+  }
+  else {
+    state.activeConfigFile = configFile
+    setEditorToConfigFile(configFile)
+  }
+  updateConfigButtonStates()
+  renderFileTabs()
+}
+
+/**
+ * Updates config button active states
+ */
+function updateConfigButtonStates(): void {
   const tsconfigBtn = document.getElementById('tsconfig-btn')
   const importMapBtn = document.getElementById('import-map-btn')
 
-  if (tsconfigBtn) {
-    tsconfigBtn.classList.toggle('active', state.activeConfigFile === TSCONFIG_FILE)
-  }
-  if (importMapBtn) {
-    importMapBtn.classList.toggle('active', state.activeConfigFile === IMPORT_MAP_FILE)
-  }
+  tsconfigBtn?.classList.toggle('active', state.activeConfigFile === CONFIG_FILES.TSCONFIG)
+  importMapBtn?.classList.toggle('active', state.activeConfigFile === CONFIG_FILES.IMPORT_MAP)
 }
 
+// ============================================================================
+// File Operations
+// ============================================================================
+
 /**
- * Start renaming a file
+ * Starts renaming a file
  */
-function startRenaming(fileName: string, tabElement: HTMLButtonElement) {
+function startRenaming(fileName: string, tabElement: HTMLButtonElement): void {
   // Don't allow renaming App files
-  if (fileName.startsWith('App.'))
-    return
+  if (fileName.startsWith('App.')) return
 
   const nameSpan = tabElement.querySelector('.file-tab-name') as HTMLSpanElement
-  if (!nameSpan)
-    return
+  if (!nameSpan) return
 
-  // 获取原 span 的宽度
   const spanWidth = nameSpan.offsetWidth
 
   const input = document.createElement('input')
@@ -307,10 +418,8 @@ function startRenaming(fileName: string, tabElement: HTMLButtonElement) {
   input.style.width = `${spanWidth}px`
   input.addEventListener('blur', () => finishRenaming(fileName, input))
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter')
-      finishRenaming(fileName, input)
-    else if (e.key === 'Escape')
-      renderFileTabs()
+    if (e.key === 'Enter') finishRenaming(fileName, input)
+    else if (e.key === 'Escape') renderFileTabs()
   })
   input.addEventListener('click', e => e.stopPropagation())
 
@@ -320,26 +429,26 @@ function startRenaming(fileName: string, tabElement: HTMLButtonElement) {
 }
 
 /**
- * Finish renaming a file
+ * Finishes renaming a file
  */
-function finishRenaming(oldName: string, input: HTMLInputElement) {
+function finishRenaming(oldName: string, input: HTMLInputElement): void {
   const newName = input.value.trim()
   if (!newName || newName === oldName) {
     renderFileTabs()
     return
   }
 
-  if (state.files.find((f: File) => f.name === newName)) {
+  if (state.files.some(f => f.name === newName)) {
     // eslint-disable-next-line no-alert
     alert('File name already exists')
     renderFileTabs()
     return
   }
 
-  // 先删除旧模型，再更新文件名
+  // Dispose old model before updating file name
   disposeOldModel(oldName)
 
-  state.files = state.files.map((f: File) =>
+  state.files = state.files.map(f =>
     f.name === oldName ? { ...f, name: newName } : f,
   )
 
@@ -355,20 +464,11 @@ function finishRenaming(oldName: string, input: HTMLInputElement) {
 }
 
 /**
- * Add a new file
+ * Adds a new file to the playground
  */
-function addNewFile() {
-  const baseName = 'Component'
-  const extension = state.activeFramework === 'vue'
-    ? '.vue'
-    : state.activeFramework === 'svelte' ? '.svelte' : '.tsx'
-  let name = `${baseName}${extension}`
-  let count = 1
-
-  while (state.files.find((f: File) => f.name === name)) {
-    name = `${baseName}${count}${extension}`
-    count++
-  }
+function addNewFile(): void {
+  const extension = getFileExtensionForFramework(state.activeFramework)
+  const name = generateUniqueFileName('Component', extension)
 
   state.files = [...state.files, { name, content: '' }]
   state.activeFile = name
@@ -379,22 +479,47 @@ function addNewFile() {
   scheduleIframeUpdate()
   scheduleUrlUpdate()
 
+  // Start renaming the new file immediately
   setTimeout(() => {
     const tab = document.querySelector(`[data-file-name="${name}"]`) as HTMLButtonElement
-    if (tab)
-      startRenaming(name, tab)
+    if (tab) startRenaming(name, tab)
   }, 0)
 }
 
 /**
- * Delete a file
+ * Gets the appropriate file extension for a framework
  */
-function deleteFile(name: string) {
-  // Don't allow deleting the main App file
-  if (name.startsWith('App.') || state.files.length <= 1)
-    return
+function getFileExtensionForFramework(framework: Framework): string {
+  switch (framework) {
+    case 'vue': return '.vue'
+    case 'svelte': return '.svelte'
+    default: return '.tsx'
+  }
+}
 
-  state.files = state.files.filter((f: File) => f.name !== name)
+/**
+ * Generates a unique file name
+ */
+function generateUniqueFileName(baseName: string, extension: string): string {
+  let name = `${baseName}${extension}`
+  let count = 1
+
+  while (state.files.some(f => f.name === name)) {
+    name = `${baseName}${count}${extension}`
+    count++
+  }
+
+  return name
+}
+
+/**
+ * Deletes a file from the playground
+ */
+function deleteFile(name: string): void {
+  // Don't allow deleting the main App file or the last file
+  if (name.startsWith('App.') || state.files.length <= 1) return
+
+  state.files = state.files.filter(f => f.name !== name)
 
   if (state.activeFile === name) {
     state.activeFile = state.files[0].name
@@ -407,43 +532,45 @@ function deleteFile(name: string) {
   scheduleUrlUpdate()
 }
 
+// ============================================================================
+// Debounced Updates
+// ============================================================================
+
 /**
- * Schedule iframe update with de    bounce
+ * Schedules iframe update with debounce
  */
-function scheduleIframeUpdate() {
-  if (updateTimer)
-    clearTimeout(updateTimer)
-  updateTimer = setTimeout(updateIframe, 1000)
+function scheduleIframeUpdate(): void {
+  if (updateTimer) clearTimeout(updateTimer)
+  updateTimer = setTimeout(updateIframe, DEBOUNCE_DELAYS.IFRAME_UPDATE)
 }
 
 /**
- * Schedule URL update with debounce
+ * Schedules URL update with debounce
  */
-function scheduleUrlUpdate() {
-  if (urlUpdateTimer)
-    clearTimeout(urlUpdateTimer)
+function scheduleUrlUpdate(): void {
+  if (urlUpdateTimer) clearTimeout(urlUpdateTimer)
   urlUpdateTimer = setTimeout(() => {
     updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent)
-  }, 500)
+  }, DEBOUNCE_DELAYS.URL_UPDATE)
 }
 
 /**
- * Schedule tsconfig update with debounce
+ * Schedules tsconfig update with debounce
  */
-function scheduleTsconfigUpdate() {
-  if (tsconfigUpdateTimer)
-    clearTimeout(tsconfigUpdateTimer)
-  tsconfigUpdateTimer = setTimeout(() => {
-    refreshLanguageService()
-  }, 1000)
+function scheduleTsconfigUpdate(): void {
+  if (tsconfigUpdateTimer) clearTimeout(tsconfigUpdateTimer)
+  tsconfigUpdateTimer = setTimeout(refreshLanguageService, DEBOUNCE_DELAYS.TSCONFIG_UPDATE)
 }
 
+// ============================================================================
+// Preview Iframe
+// ============================================================================
+
 /**
- * Update the     preview iframe
+ * Updates the preview iframe
  */
-function updateIframe() {
-  if (!iframeRef)
-    return
+function updateIframe(): void {
+  if (!iframeRef) return
 
   if (previousFramework !== state.activeFramework) {
     isIframeLoaded = false
@@ -451,7 +578,8 @@ function updateIframe() {
   }
 
   if (isIframeLoaded) {
-    const filesMap = state.files.reduce((acc: Record<string, string>, file: File) => {
+    // Hot update: send files via postMessage
+    const filesMap = state.files.reduce<Record<string, string>>((acc, file) => {
       acc[file.name] = file.content
       return acc
     }, {})
@@ -459,18 +587,19 @@ function updateIframe() {
     iframeRef.contentWindow?.postMessage({ type: 'UPDATE_FILES', files: filesMap }, '*')
   }
   else {
+    // Full reload: regenerate HTML
     const importMap = getImportMap()
     iframeRef.srcdoc = generateHtml(state.activeFramework, state.files, importMap)
     setTimeout(() => {
       isIframeLoaded = true
-    }, 500)
+    }, DEBOUNCE_DELAYS.IFRAME_LOAD)
   }
 }
 
 /**
- * Force refresh the preview iframe
+ * Forces a full refresh of the preview iframe
  */
-export function refreshPreview() {
+export function refreshPreview(): void {
   isIframeLoaded = false
   updateIframe()
 }

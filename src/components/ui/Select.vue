@@ -1,32 +1,67 @@
+<!--
+  Framework Select Component
+
+  A dropdown select component for choosing the active framework in the playground.
+  Uses @destyler/select for accessible and customizable select functionality.
+
+  Events:
+  - Dispatches 'framework:change' when user selects a different framework
+  - Listens for 'url:framework-restored' to sync with URL state
+
+  @component Select
+-->
 <script setup lang="ts">
-import type { Framework } from '../../utils/templates'
+import type { Framework } from '../../templates/types'
 import * as select from '@destyler/select'
 import { normalizeProps, useMachine } from '@destyler/vue'
 import { computed, onMounted, useId } from 'vue'
-import { frameworks, state } from '../../libs/state'
+import { FRAMEWORK_OPTIONS, state } from '../../libs/state'
 
-// Flag to prevent triggering framework:change during initialization
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Custom event names for framework changes */
+const EVENTS = {
+  FRAMEWORK_CHANGE: 'framework:change',
+  URL_FRAMEWORK_RESTORED: 'url:framework-restored',
+} as const
+
+/** Positioning offset for dropdown */
+const DROPDOWN_OFFSET = {
+  mainAxis: 2,
+  crossAxis: 2,
+} as const
+
+/** Delay before allowing framework change events (ms) */
+const INIT_DELAY = 300
+
+// ============================================================================
+// State
+// ============================================================================
+
+/** Flag to prevent triggering framework:change during initialization */
 let isInitializing = true
+
+// ============================================================================
+// Select Machine
+// ============================================================================
 
 const [current, send] = useMachine(
   select.machine({
     collection: select.collection({
-      items: frameworks,
+      items: FRAMEWORK_OPTIONS,
     }),
     id: useId(),
     value: [state.activeFramework],
     multiple: false,
     positioning: {
-      offset: {
-        mainAxis: 2,
-        crossAxis: 2,
-      },
+      offset: DROPDOWN_OFFSET,
     },
     onValueChange(details) {
       if (details.value[0] && !isInitializing) {
         const framework = details.value[0] as Framework
-        // 触发自定义事件通知 playground 切换框架
-        window.dispatchEvent(new CustomEvent('framework:change', {
+        window.dispatchEvent(new CustomEvent(EVENTS.FRAMEWORK_CHANGE, {
           detail: { framework },
         }))
       }
@@ -36,9 +71,14 @@ const [current, send] = useMachine(
 
 const api = computed(() => select.connect(current.value, send, normalizeProps))
 
-// Expose setValue method for external access (e.g., when restoring from URL)
+// ============================================================================
+// Lifecycle
+// ============================================================================
+
 onMounted(() => {
-  // Watch for framework changes from URL restoration
+  /**
+   * Handle framework restoration from URL state
+   */
   const handleUrlStateRestore = (e: CustomEvent<{ framework: Framework }>) => {
     const framework = e.detail.framework
     if (framework && api.value.value[0] !== framework) {
@@ -49,7 +89,7 @@ onMounted(() => {
     }
   }
 
-  window.addEventListener('url:framework-restored', handleUrlStateRestore as EventListener)
+  window.addEventListener(EVENTS.URL_FRAMEWORK_RESTORED, handleUrlStateRestore as EventListener)
 
   // Sync initial value from state (in case URL was loaded before component mounted)
   if (state.activeFramework && api.value.value[0] !== state.activeFramework) {
@@ -59,7 +99,7 @@ onMounted(() => {
   // Mark initialization as complete after a short delay
   setTimeout(() => {
     isInitializing = false
-  }, 300)
+  }, INIT_DELAY)
 })
 </script>
 
@@ -73,7 +113,7 @@ onMounted(() => {
     </div>
     <form>
       <select v-bind="api.getHiddenSelectProps()">
-        <option v-for="option in frameworks" :key="option.value" :value="option.value">
+        <option v-for="option in FRAMEWORK_OPTIONS" :key="option.value" :value="option.value">
           {{ option.label }}
         </option>
       </select>
@@ -82,7 +122,7 @@ onMounted(() => {
       <div v-bind="api.getPositionerProps()" class="bg-popover z-99999! p-1 w-28 shadow-md border border-solid border-border rounded-md">
         <ul v-bind="api.getContentProps()" class="w-full text-popover-foreground">
           <li
-            v-for="item in frameworks"
+            v-for="item in FRAMEWORK_OPTIONS"
             :key="item.value"
             v-bind="api.getItemProps({ item })"
             class="flex justify-between cursor-pointer mb-2 last:mb-0

@@ -1,9 +1,10 @@
 import type { FrameworkConfig, TsConfig } from './types'
 
 /**
- * React/TypeScript language configuration for Monaco
+ * Shared JSX/TSX language configuration for Monaco
+ * Used by React, Solid, and other JSX-based frameworks
  */
-const reactLanguageConfiguration = {
+export const jsxLanguageConfiguration = {
   wordPattern: /(-?\d*\.\d\w*)|([^`~!@$^&*()=+[\]{}\\|;:'",.<>/\s]+)/g,
   brackets: [
     ['{', '}'],
@@ -90,7 +91,7 @@ export const reactConfig: FrameworkConfig = {
   type: 'react',
   languageIds: ['javascript', 'typescript', 'jsx', 'tsx'],
   extensions: ['.tsx', '.jsx', '.ts', '.js'],
-  languageConfiguration: reactLanguageConfiguration,
+  languageConfiguration: jsxLanguageConfiguration,
   dependencies: reactDependencies,
   tsconfig: reactTsConfig,
   filePathPrefix: '',

@@ -11,9 +11,53 @@ import SvelteWorker from '../language/workers/svelte.worker?worker'
 import VueWorker from '../language/workers/vue.worker?worker'
 import { FRAMEWORKS } from '../templates'
 import { registerHighlighter } from '../theme/highlighter'
-import { IMPORT_MAP_FILE, state, TSCONFIG_FILE } from './state'
+import { CONFIG_FILES, state } from './state'
 
-// Monaco editor variables
+// ============================================================================
+// Types
+// ============================================================================
+
+type FileChangeCallback = (fileName: string, content: string) => void
+type ConfigChangeCallback = (configFile: string, content: string) => void
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * Worker constructors for each framework
+ */
+const WORKER_CONSTRUCTORS: Record<Framework, new () => Worker> = {
+  vue: VueWorker,
+  react: ReactWorker,
+  solid: SolidWorker,
+  svelte: SvelteWorker,
+}
+
+/**
+ * Language ID mapping by file extension
+ */
+const EXTENSION_TO_LANGUAGE: Record<string, string> = {
+  vue: 'vue',
+  svelte: 'svelte',
+  tsx: 'tsx',
+  jsx: 'jsx',
+  ts: 'typescript',
+  js: 'javascript',
+  css: 'css',
+  html: 'html',
+  json: 'json',
+}
+
+/**
+ * Default language for unknown extensions
+ */
+const DEFAULT_LANGUAGE = 'plaintext'
+
+// ============================================================================
+// Module State
+// ============================================================================
+
 let editorInstance: monaco.editor.IStandaloneCodeEditor | null = null
 let volarWorker: monaco.editor.MonacoWebWorker<WorkerLanguageService> | null = null
 let disposeVolar: (() => void) | undefined
@@ -22,11 +66,15 @@ let isEditorInitialized = false
 let themeObserver: MutationObserver | null = null
 
 // Callbacks
-let onFileChangeCallback: ((fileName: string, content: string) => void) | null = null
-let onConfigChangeCallback: ((configFile: string, content: string) => void) | null = null
+let onFileChangeCallback: FileChangeCallback | null = null
+let onConfigChangeCallback: ConfigChangeCallback | null = null
+
+// ============================================================================
+// Theme Management
+// ============================================================================
 
 /**
- * Get Monaco theme based on current document theme
+ * Gets Monaco theme based on current document theme
  */
 function getMonacoTheme(): string {
   const isDark = document.documentElement.classList.contains('dark')
@@ -35,21 +83,19 @@ function getMonacoTheme(): string {
 }
 
 /**
- * Update editor theme based on document theme
+ * Updates editor theme based on document theme
  */
-function updateEditorTheme() {
+function updateEditorTheme(): void {
   if (editorInstance) {
     monaco.editor.setTheme(getMonacoTheme())
   }
 }
 
 /**
- * Setup theme observer to watch for theme changes
+ * Sets up theme observer to watch for theme changes
  */
-function setupThemeObserver() {
-  if (themeObserver) {
-    themeObserver.disconnect()
-  }
+function setupThemeObserver(): void {
+  themeObserver?.disconnect()
 
   themeObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
@@ -67,11 +113,15 @@ function setupThemeObserver() {
   })
 }
 
+// ============================================================================
+// Worker Management
+// ============================================================================
+
 /**
  * Monaco worker host for handling CDN files
  */
 class MonacoWorkerHost {
-  onFetchCdnFile(uri: string, text: string) {
+  onFetchCdnFile(uri: string, text: string): void {
     const monacoUri = monaco.Uri.parse(uri)
     if (!monaco.editor.getModel(monacoUri)) {
       monaco.editor.createModel(text, undefined, monacoUri)
@@ -80,26 +130,20 @@ class MonacoWorkerHost {
 }
 
 /**
- * Get worker constructor for a framework
+ * Gets worker constructor for a framework
  */
 function getWorkerConstructor(framework: Framework): (new () => Worker) | null {
-  switch (framework) {
-    case 'vue': return VueWorker
-    case 'react': return ReactWorker
-    case 'solid': return SolidWorker
-    case 'svelte': return SvelteWorker
-    default: return null
-  }
+  return WORKER_CONSTRUCTORS[framework] ?? null
 }
 
 /**
- * Initialize worker for a framework
+ * Initializes worker for a framework
  */
 async function initializeWorker(WorkerClass: new () => Worker): Promise<Worker> {
   const worker = new WorkerClass()
   return new Promise((resolve) => {
-    worker.addEventListener('message', (data) => {
-      if (data.data === 'inited') {
+    worker.addEventListener('message', (event) => {
+      if (event.data === 'inited') {
         resolve(worker)
       }
     })
@@ -111,10 +155,15 @@ async function initializeWorker(WorkerClass: new () => Worker): Promise<Worker> 
   })
 }
 
+// ============================================================================
+// Language Registration
+// ============================================================================
+
 /**
- * Register languages for a framework
+ * Registers languages for a framework
  */
-function registerLanguages(config: FrameworkConfig) {
+function registerLanguages(config: FrameworkConfig): void {
+  // Register framework-specific language
   if (config.type === 'vue') {
     monaco.languages.register({ id: 'vue', extensions: ['.vue'] })
     monaco.languages.setLanguageConfiguration('vue', config.languageConfiguration)
@@ -124,6 +173,7 @@ function registerLanguages(config: FrameworkConfig) {
     monaco.languages.setLanguageConfiguration('svelte', config.languageConfiguration)
   }
 
+  // Register common languages
   monaco.languages.register({ id: 'javascript', extensions: ['.js'] })
   monaco.languages.register({ id: 'typescript', extensions: ['.ts'] })
   monaco.languages.register({ id: 'jsx', extensions: ['.jsx'] })
@@ -132,11 +182,23 @@ function registerLanguages(config: FrameworkConfig) {
   monaco.languages.register({ id: 'json', extensions: ['.json'] })
 }
 
+/**
+ * Gets language ID for a file based on its extension
+ */
+function getLanguageForFile(fileName: string): string {
+  const ext = fileName.split('.').pop() ?? ''
+  return EXTENSION_TO_LANGUAGE[ext] ?? DEFAULT_LANGUAGE
+}
+
+// ============================================================================
+// Monaco Environment Setup
+// ============================================================================
+
 // Setup Monaco environment
 if (typeof window !== 'undefined') {
   registerHighlighter()
   ;(globalThis as any).MonacoEnvironment = {
-    async getWorker(_: any, label: string) {
+    async getWorker(_: unknown, label: string): Promise<Worker> {
       const framework = label as Framework
       const WorkerClass = getWorkerConstructor(framework)
       if (WorkerClass) {
@@ -147,26 +209,33 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// ============================================================================
+// Callback Registration
+// ============================================================================
+
 /**
- * Set callback for file changes
+ * Sets callback for file changes
  */
-export function onEditorFileChange(callback: (fileName: string, content: string) => void) {
+export function onEditorFileChange(callback: FileChangeCallback): void {
   onFileChangeCallback = callback
 }
 
 /**
- * Set callback for config file changes
+ * Sets callback for config file changes
  */
-export function onEditorConfigChange(callback: (configFile: string, content: string) => void) {
+export function onEditorConfigChange(callback: ConfigChangeCallback): void {
   onConfigChangeCallback = callback
 }
 
+// ============================================================================
+// Editor Initialization
+// ============================================================================
+
 /**
- * Initialize the Monaco editor
+ * Initializes the Monaco editor
  */
-export async function initEditor() {
-  if (isEditorInitialized)
-    return
+export async function initEditor(): Promise<void> {
+  if (isEditorInitialized) return
 
   const container = document.getElementById('editor-container')
   if (!container) {
@@ -185,42 +254,8 @@ export async function initEditor() {
     fixedOverflowWidgets: true,
   })
 
-  // Setup theme observer to watch for light/dark mode changes
   setupThemeObserver()
-
-  editorInstance.onDidChangeModelContent(() => {
-    const model = editorInstance?.getModel()
-    if (model) {
-      const newValue = model.getValue()
-      let fileName = model.uri.path.substring(1)
-
-      // Check if this is a config file
-      if (fileName === TSCONFIG_FILE || fileName === IMPORT_MAP_FILE) {
-        if (fileName === TSCONFIG_FILE && state.tsconfigContent !== newValue) {
-          state.tsconfigContent = newValue
-          onConfigChangeCallback?.(fileName, newValue)
-        }
-        else if (fileName === IMPORT_MAP_FILE && state.importMapContent !== newValue) {
-          state.importMapContent = newValue
-          onConfigChangeCallback?.(fileName, newValue)
-        }
-        return
-      }
-
-      const config = getFrameworkConfig(state.activeFramework)
-      if (config?.filePathPrefix && fileName.startsWith(config.filePathPrefix)) {
-        fileName = fileName.substring(config.filePathPrefix.length)
-      }
-
-      const currentFile = state.files.find((f: File) => f.name === fileName)
-      if (currentFile && currentFile.content !== newValue) {
-        state.files = state.files.map((f: File) =>
-          f.name === fileName ? { ...f, content: newValue } : f,
-        )
-        onFileChangeCallback?.(fileName, newValue)
-      }
-    }
-  })
+  setupContentChangeHandler()
 
   isEditorInitialized = true
 
@@ -230,11 +265,72 @@ export async function initEditor() {
 }
 
 /**
- * Setup language service for a framework
+ * Sets up the content change handler for the editor
  */
-export async function setupLanguageService(framework: Framework, clearModels: boolean = false) {
+function setupContentChangeHandler(): void {
+  editorInstance?.onDidChangeModelContent(() => {
+    const model = editorInstance?.getModel()
+    if (!model) return
+
+    const newValue = model.getValue()
+    const rawFileName = model.uri.path.substring(1)
+
+    // Handle config files
+    if (rawFileName === CONFIG_FILES.TSCONFIG || rawFileName === CONFIG_FILES.IMPORT_MAP) {
+      handleConfigFileChange(rawFileName, newValue)
+      return
+    }
+
+    // Handle user files
+    handleUserFileChange(rawFileName, newValue)
+  })
+}
+
+/**
+ * Handles config file content changes
+ */
+function handleConfigFileChange(fileName: string, newValue: string): void {
+  if (fileName === CONFIG_FILES.TSCONFIG && state.tsconfigContent !== newValue) {
+    state.tsconfigContent = newValue
+    onConfigChangeCallback?.(fileName, newValue)
+  }
+  else if (fileName === CONFIG_FILES.IMPORT_MAP && state.importMapContent !== newValue) {
+    state.importMapContent = newValue
+    onConfigChangeCallback?.(fileName, newValue)
+  }
+}
+
+/**
+ * Handles user file content changes
+ */
+function handleUserFileChange(rawFileName: string, newValue: string): void {
+  const config = getFrameworkConfig(state.activeFramework)
+  let fileName = rawFileName
+
+  if (config?.filePathPrefix && fileName.startsWith(config.filePathPrefix)) {
+    fileName = fileName.substring(config.filePathPrefix.length)
+  }
+
+  const currentFile = state.files.find((f: File) => f.name === fileName)
+  if (currentFile && currentFile.content !== newValue) {
+    state.files = state.files.map((f: File) =>
+      f.name === fileName ? { ...f, content: newValue } : f,
+    )
+    onFileChangeCallback?.(fileName, newValue)
+  }
+}
+
+// ============================================================================
+// Language Service
+// ============================================================================
+
+/**
+ * Sets up language service for a framework
+ */
+export async function setupLanguageService(framework: Framework, clearModels = false): Promise<void> {
   const config = getFrameworkConfig(framework)
 
+  // Cleanup previous language service
   disposeVolar?.()
   disposeVolar = undefined
   editorOpenerDispose?.dispose()
@@ -246,39 +342,58 @@ export async function setupLanguageService(framework: Framework, clearModels: bo
     monaco.editor.getModels().forEach(model => model.dispose())
   }
 
-  if (!config || !hasLanguageServiceSupport(framework))
-    return
+  if (!config || !hasLanguageServiceSupport(framework)) return
 
   registerLanguages(config)
 
-  // Get custom tsconfig from state if available
-  let tsconfig = config.tsconfig
-  if (state.tsconfigContent) {
-    try {
-      const customTsconfig = JSON.parse(state.tsconfigContent)
-      // Merge custom tsconfig with framework defaults
-      tsconfig = {
-        ...config.tsconfig,
-        compilerOptions: {
-          ...config.tsconfig.compilerOptions,
-          ...customTsconfig.compilerOptions,
-        },
-        ...(config.type === 'vue' && customTsconfig.vueCompilerOptions
-          ? {
-              vueCompilerOptions: {
-                ...config.tsconfig.vueCompilerOptions,
-                ...customTsconfig.vueCompilerOptions,
-              },
-            }
-          : {}),
-      }
-    }
-    catch (e) {
-      console.warn('[Editor] Failed to parse custom tsconfig, using defaults', e)
-    }
+  const tsconfig = buildTsConfig(config)
+  const worker = createLanguageWorker(config, tsconfig)
+  volarWorker = worker
+
+  await setupVolarProviders(config, worker)
+  setupEditorOpener(config)
+}
+
+/**
+ * Builds the TypeScript config, merging defaults with user customizations
+ */
+function buildTsConfig(config: FrameworkConfig): typeof config.tsconfig {
+  if (!state.tsconfigContent) {
+    return config.tsconfig
   }
 
-  const worker = monaco.editor.createWebWorker<WorkerLanguageService>({
+  try {
+    const customTsconfig = JSON.parse(state.tsconfigContent)
+    return {
+      ...config.tsconfig,
+      compilerOptions: {
+        ...config.tsconfig.compilerOptions,
+        ...customTsconfig.compilerOptions,
+      },
+      ...(config.type === 'vue' && customTsconfig.vueCompilerOptions
+        ? {
+            vueCompilerOptions: {
+              ...config.tsconfig.vueCompilerOptions,
+              ...customTsconfig.vueCompilerOptions,
+            },
+          }
+        : {}),
+    }
+  }
+  catch (error) {
+    console.warn('[Editor] Failed to parse custom tsconfig, using defaults', error)
+    return config.tsconfig
+  }
+}
+
+/**
+ * Creates the language worker
+ */
+function createLanguageWorker(
+  config: FrameworkConfig,
+  tsconfig: typeof config.tsconfig,
+): monaco.editor.MonacoWebWorker<WorkerLanguageService> {
+  return monaco.editor.createWebWorker<WorkerLanguageService>({
     moduleId: `vs/language/${config.type}/${config.type}Worker`,
     label: config.workerLabel,
     host: new MonacoWorkerHost(),
@@ -287,9 +402,15 @@ export async function setupLanguageService(framework: Framework, clearModels: bo
       dependencies: config.dependencies,
     },
   })
+}
 
-  volarWorker = worker
-
+/**
+ * Sets up Volar providers
+ */
+async function setupVolarProviders(
+  config: FrameworkConfig,
+  worker: monaco.editor.MonacoWebWorker<WorkerLanguageService>,
+): Promise<void> {
   const getSyncUris = () => {
     return monaco.editor.getModels()
       .filter(model => !model.uri.path.includes('node_modules'))
@@ -323,14 +444,20 @@ export async function setupLanguageService(framework: Framework, clearModels: bo
       disposeProviders()
     }
   }
-  catch (err) {
-    console.error(`[Editor] Volar setup failed for ${framework}:`, err)
+  catch (error) {
+    console.error(`[Editor] Volar setup failed for ${config.type}:`, error)
   }
+}
 
+/**
+ * Sets up the editor opener for go-to-definition
+ */
+function setupEditorOpener(config: FrameworkConfig): void {
   editorOpenerDispose = monaco.editor.registerEditorOpener({
     openCodeEditor(_source, resource) {
-      if (resource.toString().startsWith('file:///node_modules'))
+      if (resource.toString().startsWith('file:///node_modules')) {
         return true
+      }
 
       const path = resource.path
       if (/^\//.test(path)) {
@@ -342,7 +469,6 @@ export async function setupLanguageService(framework: Framework, clearModels: bo
         if (fileExists && fileName !== state.activeFile) {
           state.activeFile = fileName
           updateActiveModel()
-          // Dispatch event for UI update
           window.dispatchEvent(new CustomEvent('editor:file-selected'))
           return true
         }
@@ -352,86 +478,102 @@ export async function setupLanguageService(framework: Framework, clearModels: bo
   })
 }
 
+// ============================================================================
+// Model Synchronization
+// ============================================================================
+
 /**
- * Sync files to Monaco models
+ * Syncs files to Monaco models
  */
-export function syncFilesToModels() {
+export function syncFilesToModels(): void {
   const config = getFrameworkConfig(state.activeFramework)
-  const files = state.files
+  const { files } = state
 
-  if (files.length === 0)
-    return
+  if (files.length === 0) return
 
+  // Create tsconfig and global types models if needed
   if (config && hasLanguageServiceSupport(state.activeFramework)) {
-    const tsconfigUri = monaco.Uri.parse('file:///tsconfig.json')
-    if (!monaco.editor.getModel(tsconfigUri)) {
-      monaco.editor.createModel(JSON.stringify(config.tsconfig, null, 2), 'json', tsconfigUri)
-    }
-
-    if (config.generateGlobalTypes) {
-      const globalTypesFileName = config.type === 'vue' ? 'vue_3.4_0.d.ts' : `${config.type}-global.d.ts`
-      const globalTypesUri = monaco.Uri.parse(`file:///node_modules/${globalTypesFileName}`)
-      if (!monaco.editor.getModel(globalTypesUri)) {
-        monaco.editor.createModel(config.generateGlobalTypes(), 'typescript', globalTypesUri)
-      }
-    }
+    createConfigModels(config)
   }
 
-  files.forEach((file: File) => {
-    const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${file.name}` : file.name
-    const uri = monaco.Uri.parse(`file:///${filePath}`)
-    let model = monaco.editor.getModel(uri)
+  // Sync user files
+  for (const file of files) {
+    syncFileToModel(file, config)
+  }
 
-    const ext = file.name.split('.').pop()
-    let lang = 'plaintext'
-    if (ext === 'vue')
-      lang = 'vue'
-    else if (ext === 'svelte')
-      lang = 'svelte'
-    else if (ext === 'tsx')
-      lang = 'tsx'
-    else if (ext === 'jsx')
-      lang = 'jsx'
-    else if (ext === 'ts')
-      lang = 'typescript'
-    else if (ext === 'js')
-      lang = 'javascript'
-    else if (ext === 'css')
-      lang = 'css'
-    else if (ext === 'html')
-      lang = 'html'
-    else if (ext === 'json')
-      lang = 'json'
-
-    if (!model) {
-      model = monaco.editor.createModel(file.content, lang, uri)
-    }
-    else {
-      if (model.getValue() !== file.content)
-        model.setValue(file.content)
-      if (model.getLanguageId() !== lang)
-        monaco.editor.setModelLanguage(model, lang)
-    }
-  })
-
-  const currentFilePaths = files.map((f: File) =>
-    config?.filePathPrefix ? `${config.filePathPrefix}${f.name}` : f.name,
-  )
-  monaco.editor.getModels().forEach((model) => {
-    const filePath = model.uri.path.substring(1)
-    if (filePath === 'tsconfig.json' || model.uri.path.includes('node_modules'))
-      return
-    if (!currentFilePaths.includes(filePath))
-      model.dispose()
-  })
+  // Clean up orphaned models
+  cleanupOrphanedModels(files, config)
 }
 
 /**
- * Update the active model in the editor
+ * Creates config models for language service
  */
-export function updateActiveModel() {
-  if (!editorInstance || !state.activeFile)
-    return
+function createConfigModels(config: FrameworkConfig): void {
+  const tsconfigUri = monaco.Uri.parse('file:///tsconfig.json')
+  if (!monaco.editor.getModel(tsconfigUri)) {
+    monaco.editor.createModel(JSON.stringify(config.tsconfig, null, 2), 'json', tsconfigUri)
+  }
+
+  if (config.generateGlobalTypes) {
+    const globalTypesFileName = config.type === 'vue' ? 'vue_3.4_0.d.ts' : `${config.type}-global.d.ts`
+    const globalTypesUri = monaco.Uri.parse(`file:///node_modules/${globalTypesFileName}`)
+    if (!monaco.editor.getModel(globalTypesUri)) {
+      monaco.editor.createModel(config.generateGlobalTypes(), 'typescript', globalTypesUri)
+    }
+  }
+}
+
+/**
+ * Syncs a single file to its Monaco model
+ */
+function syncFileToModel(file: File, config: FrameworkConfig | null): void {
+  const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${file.name}` : file.name
+  const uri = monaco.Uri.parse(`file:///${filePath}`)
+  const lang = getLanguageForFile(file.name)
+
+  let model = monaco.editor.getModel(uri)
+
+  if (!model) {
+    model = monaco.editor.createModel(file.content, lang, uri)
+  }
+  else {
+    if (model.getValue() !== file.content) {
+      model.setValue(file.content)
+    }
+    if (model.getLanguageId() !== lang) {
+      monaco.editor.setModelLanguage(model, lang)
+    }
+  }
+}
+
+/**
+ * Cleans up models that no longer have corresponding files
+ */
+function cleanupOrphanedModels(files: File[], config: FrameworkConfig | null): void {
+  const currentFilePaths = files.map((f: File) =>
+    config?.filePathPrefix ? `${config.filePathPrefix}${f.name}` : f.name,
+  )
+
+  monaco.editor.getModels().forEach((model) => {
+    const filePath = model.uri.path.substring(1)
+    if (filePath === 'tsconfig.json' || model.uri.path.includes('node_modules')) {
+      return
+    }
+    if (!currentFilePaths.includes(filePath)) {
+      model.dispose()
+    }
+  })
+}
+
+// ============================================================================
+// Active Model Management
+// ============================================================================
+
+/**
+ * Updates the active model in the editor
+ */
+export function updateActiveModel(): void {
+  if (!editorInstance || !state.activeFile) return
 
   const config = getFrameworkConfig(state.activeFramework)
   const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${state.activeFile}` : state.activeFile
@@ -444,9 +586,9 @@ export function updateActiveModel() {
 }
 
 /**
- * Dispose old model by file name (used when renaming files)
+ * Disposes old model by file name (used when renaming files)
  */
-export function disposeOldModel(fileName: string) {
+export function disposeOldModel(fileName: string): void {
   const config = getFrameworkConfig(state.activeFramework)
   const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${fileName}` : fileName
   const uri = monaco.Uri.parse(`file:///${filePath}`)
@@ -461,26 +603,30 @@ export function disposeOldModel(fileName: string) {
   }
 }
 
+// ============================================================================
+// Config File Management
+// ============================================================================
+
 /**
- * Get default import map for the current framework
+ * Gets default import map for the current framework
  */
 function getDefaultImportMap(): object {
   const template = FRAMEWORKS[state.activeFramework]
-  return template?.importMap || { imports: {} }
+  return template?.importMap ?? { imports: {} }
 }
 
 /**
- * Get default tsconfig for the current framework
+ * Gets default tsconfig for the current framework
  */
 function getDefaultTsconfig(): object {
   const template = FRAMEWORKS[state.activeFramework]
-  return template?.tsconfig || {}
+  return template?.tsconfig ?? {}
 }
 
 /**
- * Initialize config file content in state if not already set
+ * Initializes config file content in state if not already set
  */
-export function initConfigContent() {
+export function initConfigContent(): void {
   if (!state.tsconfigContent) {
     state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
   }
@@ -490,28 +636,24 @@ export function initConfigContent() {
 }
 
 /**
- * Reset config content when framework changes
+ * Resets config content when framework changes
  */
-export function resetConfigContent() {
+export function resetConfigContent(): void {
   state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
   state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
 
   // Update existing models if they exist
-  const tsconfigUri = monaco.Uri.parse(`file:///${TSCONFIG_FILE}`)
+  const tsconfigUri = monaco.Uri.parse(`file:///${CONFIG_FILES.TSCONFIG}`)
   const tsconfigModel = monaco.editor.getModel(tsconfigUri)
-  if (tsconfigModel) {
-    tsconfigModel.setValue(state.tsconfigContent)
-  }
+  tsconfigModel?.setValue(state.tsconfigContent)
 
-  const importMapUri = monaco.Uri.parse(`file:///${IMPORT_MAP_FILE}`)
+  const importMapUri = monaco.Uri.parse(`file:///${CONFIG_FILES.IMPORT_MAP}`)
   const importMapModel = monaco.editor.getModel(importMapUri)
-  if (importMapModel) {
-    importMapModel.setValue(state.importMapContent)
-  }
+  importMapModel?.setValue(state.importMapContent)
 }
 
 /**
- * Get current import map from state
+ * Gets current import map from state
  */
 export function getImportMap(): object {
   try {
@@ -523,62 +665,49 @@ export function getImportMap(): object {
 }
 
 /**
- * Set editor to show a config file (tsconfig.json or import-map.json)
+ * Sets editor to show a config file (tsconfig.json or import-map.json)
  */
-export function setEditorToConfigFile(configFile: typeof TSCONFIG_FILE | typeof IMPORT_MAP_FILE) {
-  if (!editorInstance)
-    return
+export function setEditorToConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG | typeof CONFIG_FILES.IMPORT_MAP): void {
+  if (!editorInstance) return
 
-  // Initialize config content if needed
   initConfigContent()
 
   const uri = monaco.Uri.parse(`file:///${configFile}`)
   let model = monaco.editor.getModel(uri)
 
-  const content = configFile === TSCONFIG_FILE ? state.tsconfigContent : state.importMapContent
+  const content = configFile === CONFIG_FILES.TSCONFIG ? state.tsconfigContent : state.importMapContent
 
   if (!model) {
-    // Create the model with content from state
     model = monaco.editor.createModel(content, 'json', uri)
   }
-  else {
-    // Update existing model content if different
-    if (model.getValue() !== content) {
-      model.setValue(content)
-    }
+  else if (model.getValue() !== content) {
+    model.setValue(content)
   }
 
   editorInstance.setModel(model)
 }
 
 /**
- * Set editor back to showing a user file
+ * Sets editor back to showing a user file
  */
-export function setEditorToUserFile() {
+export function setEditorToUserFile(): void {
   updateActiveModel()
 }
 
 /**
- * Refresh language service with updated tsconfig
+ * Refreshes language service with updated tsconfig
  * This should be called when tsconfig is modified by the user
  */
-export async function refreshLanguageService() {
-  // Remember current config file being edited
+export async function refreshLanguageService(): Promise<void> {
   const currentConfigFile = state.activeConfigFile
 
-  // Re-setup language service with the current framework
-  // This will pick up the new tsconfig from state
   await setupLanguageService(state.activeFramework, false)
-
-  // Re-sync files to ensure models are properly registered
   syncFilesToModels()
 
-  // If we were editing a config file, stay on it
   if (currentConfigFile) {
     setEditorToConfigFile(currentConfigFile)
   }
   else {
-    // Update active model
     updateActiveModel()
   }
 }
