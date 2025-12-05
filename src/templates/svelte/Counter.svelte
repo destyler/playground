@@ -26,47 +26,12 @@
   }
 </script>
 
-<div class="counter">
-  <p>Count: <strong>{count}</strong></p>
-  <p>Doubled: <strong>{doubled}</strong></p>
-  <div class="buttons">
-    <button onclick={decrement}>-</button>
-    <button onclick={reset}>Reset</button>
-    <button onclick={increment}>+</button>
+<div class="border border-gray-200 dark:border-gray-600 p-4 rounded-lg bg-gray-50 dark:bg-gray-700">
+  <p class="text-gray-600 dark:text-gray-300 mb-2">Count: <strong class="text-orange-500">{count}</strong></p>
+  <p class="text-gray-600 dark:text-gray-300 mb-4">Doubled: <strong class="text-orange-500">{doubled}</strong></p>
+  <div class="flex gap-2 justify-center">
+    <button class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors" onclick={decrement}>-</button>
+    <button class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors" onclick={reset}>Reset</button>
+    <button class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors" onclick={increment}>+</button>
   </div>
 </div>
-
-<style>
-  .counter {
-    padding: 20px;
-    background: #f5f5f5;
-    border-radius: 8px;
-    display: inline-block;
-  }
-  .buttons {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin-top: 10px;
-  }
-  button {
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    background: #ff3e00;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    transition: background 0.2s;
-  }
-  button:hover {
-    background: #ff5722;
-  }
-  p {
-    margin: 5px 0;
-    font-size: 18px;
-  }
-  strong {
-    color: #ff3e00;
-  }
-</style>

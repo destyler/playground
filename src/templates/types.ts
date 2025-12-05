@@ -57,6 +57,8 @@ export interface FrameworkTemplate {
   tsconfig: object
   /** Import map for browser module resolution (user-friendly format) */
   importMap: UserImportMap
+  /** UnoCSS configuration content */
+  unoConfig: string
 }
 
 /**

@@ -2,12 +2,16 @@ import type { File, Framework, FrameworkTemplate, UserImportMap } from './types'
 
 import reactImportMap from './react/import-map.json'
 import reactTsconfig from './react/tsconfig.json'
+import reactUnoConfig from './react/uno.config.ts?raw'
 import solidImportMap from './solid/import-map.json'
 import solidTsconfig from './solid/tsconfig.json'
+import solidUnoConfig from './solid/uno.config.ts?raw'
 import svelteImportMap from './svelte/import-map.json'
 import svelteTsconfig from './svelte/tsconfig.json'
+import svelteUnoConfig from './svelte/uno.config.ts?raw'
 import vueImportMap from './vue/import-map.json'
 import vueTsconfig from './vue/tsconfig.json'
+import vueUnoConfig from './vue/uno.config.ts?raw'
 
 // Template file imports using Vite's glob import
 const vueTemplates = import.meta.glob('./vue/*', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
@@ -16,9 +20,9 @@ const solidTemplates = import.meta.glob('./solid/*', { eager: true, query: '?raw
 const svelteTemplates = import.meta.glob('./svelte/*', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 
 /**
- * File extensions to exclude from template loading (config files)
+ * File extensions/names to exclude from template loading (config files)
  */
-const EXCLUDED_EXTENSIONS = ['.json']
+const EXCLUDED_FILES = ['.json', 'uno.config.ts']
 
 /**
  * Converts glob import results to File array
@@ -27,7 +31,7 @@ const EXCLUDED_EXTENSIONS = ['.json']
  */
 function getFilesFromGlob(templates: Record<string, string>, activeFileName: string): File[] {
   return Object.entries(templates)
-    .filter(([path]) => !EXCLUDED_EXTENSIONS.some(ext => path.endsWith(ext)))
+    .filter(([path]) => !EXCLUDED_FILES.some(pattern => path.endsWith(pattern)))
     .map(([path, content]) => {
       const name = path.split('/').pop() ?? ''
       return {
@@ -46,6 +50,7 @@ export const VUE_TEMPLATE: FrameworkTemplate = {
   defaultFiles: getFilesFromGlob(vueTemplates, 'App.vue'),
   tsconfig: vueTsconfig,
   importMap: vueImportMap as UserImportMap,
+  unoConfig: vueUnoConfig,
 }
 
 /**
@@ -56,6 +61,7 @@ export const REACT_TEMPLATE: FrameworkTemplate = {
   defaultFiles: getFilesFromGlob(reactTemplates, 'App.tsx'),
   tsconfig: reactTsconfig,
   importMap: reactImportMap as UserImportMap,
+  unoConfig: reactUnoConfig,
 }
 
 /**
@@ -66,6 +72,7 @@ export const SOLID_TEMPLATE: FrameworkTemplate = {
   defaultFiles: getFilesFromGlob(solidTemplates, 'App.tsx'),
   tsconfig: solidTsconfig,
   importMap: solidImportMap as UserImportMap,
+  unoConfig: solidUnoConfig,
 }
 
 /**
@@ -76,6 +83,7 @@ export const SVELTE_TEMPLATE: FrameworkTemplate = {
   defaultFiles: getFilesFromGlob(svelteTemplates, 'App.svelte'),
   tsconfig: svelteTsconfig,
   importMap: svelteImportMap as UserImportMap,
+  unoConfig: svelteUnoConfig,
 }
 
 /**

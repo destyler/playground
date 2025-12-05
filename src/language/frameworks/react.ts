@@ -40,6 +40,10 @@ const reactDependencies: Record<string, string> = {
   'react-dom': 'latest',
   '@types/react': 'latest',
   '@types/react-dom': 'latest',
+  // UnoCSS types for uno.config.ts
+  'unocss': 'latest',
+  '@unocss/core': 'latest',
+  '@unocss/preset-uno': 'latest',
 }
 
 /**

@@ -56,6 +56,10 @@ const svelteLanguageConfiguration = {
 const svelteDependencies: Record<string, string> = {
   typescript: 'latest',
   svelte: '5',
+  // UnoCSS types for uno.config.ts
+  'unocss': 'latest',
+  '@unocss/core': 'latest',
+  '@unocss/preset-uno': 'latest',
 }
 
 /**

@@ -118,16 +118,33 @@ function setupThemeObserver(): void {
 // ============================================================================
 
 /**
- * Monaco worker host for handling CDN files
+ * Cache of CDN file URIs that have already been processed
+ * This prevents duplicate model creation across worker reinitializations
+ */
+const processedCdnUris = new Set<string>()
+
+/**
+ * Monaco worker host for handling CDN files (singleton instance)
  */
 class MonacoWorkerHost {
   onFetchCdnFile(uri: string, text: string): void {
+    // Check if we've already processed this URI
+    if (processedCdnUris.has(uri)) {
+      return
+    }
+
     const monacoUri = monaco.Uri.parse(uri)
     if (!monaco.editor.getModel(monacoUri)) {
       monaco.editor.createModel(text, undefined, monacoUri)
     }
+
+    // Mark as processed
+    processedCdnUris.add(uri)
   }
 }
+
+// Singleton instance of the worker host
+const workerHost = new MonacoWorkerHost()
 
 /**
  * Gets worker constructor for a framework
@@ -235,7 +252,8 @@ export function onEditorConfigChange(callback: ConfigChangeCallback): void {
  * Initializes the Monaco editor
  */
 export async function initEditor(): Promise<void> {
-  if (isEditorInitialized) return
+  if (isEditorInitialized)
+    return
 
   const container = document.getElementById('editor-container')
   if (!container) {
@@ -270,13 +288,16 @@ export async function initEditor(): Promise<void> {
 function setupContentChangeHandler(): void {
   editorInstance?.onDidChangeModelContent(() => {
     const model = editorInstance?.getModel()
-    if (!model) return
+    if (!model)
+      return
 
     const newValue = model.getValue()
     const rawFileName = model.uri.path.substring(1)
 
     // Handle config files
-    if (rawFileName === CONFIG_FILES.TSCONFIG || rawFileName === CONFIG_FILES.IMPORT_MAP) {
+    if (rawFileName === CONFIG_FILES.TSCONFIG
+      || rawFileName === CONFIG_FILES.IMPORT_MAP
+      || rawFileName === CONFIG_FILES.UNO_CONFIG) {
       handleConfigFileChange(rawFileName, newValue)
       return
     }
@@ -296,6 +317,10 @@ function handleConfigFileChange(fileName: string, newValue: string): void {
   }
   else if (fileName === CONFIG_FILES.IMPORT_MAP && state.importMapContent !== newValue) {
     state.importMapContent = newValue
+    onConfigChangeCallback?.(fileName, newValue)
+  }
+  else if (fileName === CONFIG_FILES.UNO_CONFIG && state.unoConfigContent !== newValue) {
+    state.unoConfigContent = newValue
     onConfigChangeCallback?.(fileName, newValue)
   }
 }
@@ -342,7 +367,8 @@ export async function setupLanguageService(framework: Framework, clearModels = f
     monaco.editor.getModels().forEach(model => model.dispose())
   }
 
-  if (!config || !hasLanguageServiceSupport(framework)) return
+  if (!config || !hasLanguageServiceSupport(framework))
+    return
 
   registerLanguages(config)
 
@@ -396,7 +422,7 @@ function createLanguageWorker(
   return monaco.editor.createWebWorker<WorkerLanguageService>({
     moduleId: `vs/language/${config.type}/${config.type}Worker`,
     label: config.workerLabel,
-    host: new MonacoWorkerHost(),
+    host: workerHost,
     createData: {
       tsconfig,
       dependencies: config.dependencies,
@@ -489,7 +515,8 @@ export function syncFilesToModels(): void {
   const config = getFrameworkConfig(state.activeFramework)
   const { files } = state
 
-  if (files.length === 0) return
+  if (files.length === 0)
+    return
 
   // Create tsconfig and global types models if needed
   if (config && hasLanguageServiceSupport(state.activeFramework)) {
@@ -554,11 +581,34 @@ function cleanupOrphanedModels(files: File[], config: FrameworkConfig | null): v
     config?.filePathPrefix ? `${config.filePathPrefix}${f.name}` : f.name,
   )
 
+  // Config files that should never be cleaned up
+  const protectedFiles = [
+    CONFIG_FILES.TSCONFIG,
+    CONFIG_FILES.IMPORT_MAP,
+    CONFIG_FILES.UNO_CONFIG,
+  ]
+
   monaco.editor.getModels().forEach((model) => {
-    const filePath = model.uri.path.substring(1)
-    if (filePath === 'tsconfig.json' || model.uri.path.includes('node_modules')) {
+    const uri = model.uri
+    const filePath = uri.path.substring(1)
+
+    // Skip protected config files
+    if (protectedFiles.includes(filePath as any)) {
       return
     }
+
+    // Skip CDN/external files (node_modules, https, http, cdn URLs)
+    if (uri.path.includes('node_modules')
+      || uri.scheme === 'https'
+      || uri.scheme === 'http'
+      || uri.authority.includes('cdn')
+      || uri.authority.includes('esm.sh')
+      || uri.authority.includes('unpkg')
+      || uri.authority.includes('jsdelivr')) {
+      return
+    }
+
+    // Only dispose user files that are no longer in the file list
     if (!currentFilePaths.includes(filePath)) {
       model.dispose()
     }
@@ -573,7 +623,8 @@ function cleanupOrphanedModels(files: File[], config: FrameworkConfig | null): v
  * Updates the active model in the editor
  */
 export function updateActiveModel(): void {
-  if (!editorInstance || !state.activeFile) return
+  if (!editorInstance || !state.activeFile)
+    return
 
   const config = getFrameworkConfig(state.activeFramework)
   const filePath = config?.filePathPrefix ? `${config.filePathPrefix}${state.activeFile}` : state.activeFile
@@ -624,6 +675,14 @@ function getDefaultTsconfig(): object {
 }
 
 /**
+ * Gets default uno config for the current framework
+ */
+function getDefaultUnoConfig(): string {
+  const template = FRAMEWORKS[state.activeFramework]
+  return template?.unoConfig ?? ''
+}
+
+/**
  * Initializes config file content in state if not already set
  */
 export function initConfigContent(): void {
@@ -633,6 +692,9 @@ export function initConfigContent(): void {
   if (!state.importMapContent) {
     state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
   }
+  if (!state.unoConfigContent) {
+    state.unoConfigContent = getDefaultUnoConfig()
+  }
 }
 
 /**
@@ -641,6 +703,7 @@ export function initConfigContent(): void {
 export function resetConfigContent(): void {
   state.tsconfigContent = JSON.stringify(getDefaultTsconfig(), null, 2)
   state.importMapContent = JSON.stringify(getDefaultImportMap(), null, 2)
+  state.unoConfigContent = getDefaultUnoConfig()
 
   // Update existing models if they exist
   const tsconfigUri = monaco.Uri.parse(`file:///${CONFIG_FILES.TSCONFIG}`)
@@ -650,6 +713,10 @@ export function resetConfigContent(): void {
   const importMapUri = monaco.Uri.parse(`file:///${CONFIG_FILES.IMPORT_MAP}`)
   const importMapModel = monaco.editor.getModel(importMapUri)
   importMapModel?.setValue(state.importMapContent)
+
+  const unoConfigUri = monaco.Uri.parse(`file:///${CONFIG_FILES.UNO_CONFIG}`)
+  const unoConfigModel = monaco.editor.getModel(unoConfigUri)
+  unoConfigModel?.setValue(state.unoConfigContent)
 }
 
 /**
@@ -665,21 +732,36 @@ export function getImportMap(): object {
 }
 
 /**
- * Sets editor to show a config file (tsconfig.json or import-map.json)
+ * Sets editor to show a config file (tsconfig.json, import-map.json or uno.config.ts)
  * Note: import-map.json is read-only
  */
-export function setEditorToConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG | typeof CONFIG_FILES.IMPORT_MAP): void {
-  if (!editorInstance) return
+export function setEditorToConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG | typeof CONFIG_FILES.IMPORT_MAP | typeof CONFIG_FILES.UNO_CONFIG): void {
+  if (!editorInstance)
+    return
 
   initConfigContent()
 
   const uri = monaco.Uri.parse(`file:///${configFile}`)
   let model = monaco.editor.getModel(uri)
 
-  const content = configFile === CONFIG_FILES.TSCONFIG ? state.tsconfigContent : state.importMapContent
+  let content: string
+  let language: string
+
+  if (configFile === CONFIG_FILES.TSCONFIG) {
+    content = state.tsconfigContent
+    language = 'json'
+  }
+  else if (configFile === CONFIG_FILES.IMPORT_MAP) {
+    content = state.importMapContent
+    language = 'json'
+  }
+  else {
+    content = state.unoConfigContent
+    language = 'typescript'
+  }
 
   if (!model) {
-    model = monaco.editor.createModel(content, 'json', uri)
+    model = monaco.editor.createModel(content, language, uri)
   }
   else if (model.getValue() !== content) {
     model.setValue(content)
@@ -690,6 +772,37 @@ export function setEditorToConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG |
   // Set editor to read-only for import-map.json
   const isReadOnly = READ_ONLY_CONFIG_FILES.includes(configFile)
   editorInstance.updateOptions({ readOnly: isReadOnly })
+
+  // For TypeScript files, trigger a delayed refresh to ensure semantic highlighting
+  // works after type definitions are loaded from CDN
+  if (language === 'typescript' && model) {
+    scheduleSemanticRefresh(model)
+  }
+}
+
+/**
+ * Schedules a semantic refresh for the model after types are loaded
+ * This ensures deprecated APIs show strikethrough on first open
+ */
+function scheduleSemanticRefresh(model: monaco.editor.ITextModel): void {
+  setTimeout(() => {
+    if (model.isDisposed()) 
+return
+
+    // Force Monaco to re-validate by pushing a no-op edit
+    const fullRange = model.getFullModelRange()
+    const currentContent = model.getValue()
+
+    model.pushEditOperations(
+      [],
+      [{
+        range: fullRange,
+        text: currentContent,
+        forceMoveMarkers: false,
+      }],
+      () => null,
+    )
+  }, 1500)
 }
 
 /**
@@ -714,7 +827,7 @@ export async function refreshLanguageService(): Promise<void> {
   syncFilesToModels()
 
   if (currentConfigFile) {
-    setEditorToConfigFile(currentConfigFile)
+    setEditorToConfigFile(currentConfigFile as typeof CONFIG_FILES.TSCONFIG | typeof CONFIG_FILES.IMPORT_MAP | typeof CONFIG_FILES.UNO_CONFIG)
   }
   else {
     updateActiveModel()

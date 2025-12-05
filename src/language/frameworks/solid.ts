@@ -7,6 +7,10 @@ import { jsxLanguageConfiguration } from './react'
 const solidDependencies: Record<string, string> = {
   'typescript': 'latest',
   'solid-js': 'latest',
+  // UnoCSS types for uno.config.ts
+  'unocss': 'latest',
+  '@unocss/core': 'latest',
+  '@unocss/preset-uno': 'latest',
 }
 
 /**

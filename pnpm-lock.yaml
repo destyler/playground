@@ -14,6 +14,63 @@ importers:
       '@shikijs/monaco':
         specifier: ^3.9.2
         version: 3.19.0
+      '@unocss/autocomplete':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/core':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/extractor-arbitrary-variants':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/extractor-pug':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/extractor-svelte':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-attributify':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-icons':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-mini':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-rem-to-px':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-tagify':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-typography':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-uno':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-web-fonts':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-wind':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-wind3':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/preset-wind4':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/transformer-compile-class':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/transformer-directives':
+        specifier: ^66.5.10
+        version: 66.5.10
+      '@unocss/transformer-variant-group':
+        specifier: ^66.5.10
+        version: 66.5.10
       '@volar/jsdelivr':
         specifier: 2.4.23
         version: 2.4.23
@@ -38,6 +95,12 @@ importers:
       fflate:
         specifier: ^0.8.2
         version: 0.8.2
+      lz-string:
+        specifier: ^1.5.0
+        version: 1.5.0
+      magic-string:
+        specifier: ^0.30.17
+        version: 0.30.21
       monaco-editor-core:
         specifier: 0.52.2
         version: 0.52.2
@@ -1304,6 +1367,9 @@ packages:
       vite:
         optional: true
 
+  '@unocss/autocomplete@66.5.10':
+    resolution: {integrity: sha512-cN8+IgearU7NZ4DsS5CF5MM8wbrZ4qnpy8uxcivDtIfzesneuGcDRUM2VwAz4g8Zz76+2bSAjZ6vVcpO2wgooA==}
+
   '@unocss/cli@66.5.10':
     resolution: {integrity: sha512-3tGBTGLLTtwGEwXGWsL77K4bTvNG115VJvYPPit68Z7uXnA6S8xpkwaFFDJ3kbrsWtgXBpIgM06HhtT6/3MILg==}
     engines: {node: '>=14'}
@@ -1318,6 +1384,17 @@ packages:
 
   '@unocss/extractor-arbitrary-variants@66.5.10':
     resolution: {integrity: sha512-9JsAY1a68WZaIbSiwQa7LLAO+t4T5nnhgmNxY3MGaK58k6Qa9ayZb4AG4fqOpw+Zn8tmKd7yXJ0s+27sx1n2BA==}
+
+  '@unocss/extractor-pug@66.5.10':
+    resolution: {integrity: sha512-tpbWZhidB78flhXHM6ew/yB3JdncEctZGZvsXgIlLDfJSbMhVPuT/Tp/KELPxm71FAFyt1IYibS2TJwCtV2DNw==}
+    peerDependencies:
+      pug: ^3.0.0
+    peerDependenciesMeta:
+      pug:
+        optional: true
+
+  '@unocss/extractor-svelte@66.5.10':
+    resolution: {integrity: sha512-rMGAz2MrmxahxSCvOm72H61HwaAeDJjK/93DHM42J6zqHyLEVXI7QlLy4wqKhSLa/OAn04UdFBS0kF0VZXq+oQ==}
 
   '@unocss/inspector@66.5.10':
     resolution: {integrity: sha512-L/Nvi4bkXFxbGNOi7TPNnIIDfY1zKghfJ+cF7To/WrXplP1Y4nEZa2kGwcVBcsaysACri0whU19Dh3yf+bG+Pg==}
@@ -1336,6 +1413,9 @@ packages:
 
   '@unocss/preset-mini@66.5.10':
     resolution: {integrity: sha512-jRmweaPhaTGBSDKFuhEGayGyuGr66rTRRqzv5EAdHH4x43TFlJ1RO5SVlzzJdo1zJy4vyGSINIVKeI49FYhEKQ==}
+
+  '@unocss/preset-rem-to-px@66.5.10':
+    resolution: {integrity: sha512-eGpUWk/lDvBYn72BIQd7TOY0R3f6hI2mZdXbblSafkIvI50YHuTb189rdZu4tV4d3TjaNvx2NSJPnaaGVz/xEA==}
 
   '@unocss/preset-tagify@66.5.10':
     resolution: {integrity: sha512-SLfMhNQCFEXspp/zREZv61dmuvRQ+CVI04zcpGpg4LnqvMKkLVyPPetlhgJwW1hd9D7OWkUGoQm9JA0O4+9XJA==}
@@ -2341,6 +2421,9 @@ packages:
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
 
+  fzf@0.5.2:
+    resolution: {integrity: sha512-Tt4kuxLXFKHy8KT40zwsUPUkg1CrsgY25FxA2U/j/0WgEDCk3ddc/zLTCCcbSHX9FcKtLuVaDGtGE/STWC+j3Q==}
+
   gensync@1.0.0-beta.2:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
     engines: {node: '>=6.9.0'}
@@ -2686,8 +2769,16 @@ packages:
   lru-cache@10.4.3:
     resolution: {integrity: sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ==}
 
+  lru-cache@11.2.4:
+    resolution: {integrity: sha512-B5Y16Jr9LB9dHVkh6ZevG+vAbOsNOYCX+sXvFWFu7B3Iz5mijW3zdbMyhsh8ANd2mSWBYdJgnqi+mL7/LrOPYg==}
+    engines: {node: 20 || >=22}
+
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lz-string@1.5.0:
+    resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
+    hasBin: true
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -5284,6 +5375,11 @@ snapshots:
     optionalDependencies:
       vite: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(yaml@2.8.2)
 
+  '@unocss/autocomplete@66.5.10':
+    dependencies:
+      fzf: 0.5.2
+      lru-cache: 11.2.4
+
   '@unocss/cli@66.5.10':
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -5310,6 +5406,10 @@ snapshots:
   '@unocss/extractor-arbitrary-variants@66.5.10':
     dependencies:
       '@unocss/core': 66.5.10
+
+  '@unocss/extractor-pug@66.5.10': {}
+
+  '@unocss/extractor-svelte@66.5.10': {}
 
   '@unocss/inspector@66.5.10':
     dependencies:
@@ -5344,6 +5444,10 @@ snapshots:
       '@unocss/core': 66.5.10
       '@unocss/extractor-arbitrary-variants': 66.5.10
       '@unocss/rule-utils': 66.5.10
+
+  '@unocss/preset-rem-to-px@66.5.10':
+    dependencies:
+      '@unocss/core': 66.5.10
 
   '@unocss/preset-tagify@66.5.10':
     dependencies:
@@ -6666,6 +6770,8 @@ snapshots:
 
   function-bind@1.1.2: {}
 
+  fzf@0.5.2: {}
+
   gensync@1.0.0-beta.2: {}
 
   get-caller-file@2.0.5: {}
@@ -7009,9 +7115,13 @@ snapshots:
 
   lru-cache@10.4.3: {}
 
+  lru-cache@11.2.4: {}
+
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lz-string@1.5.0: {}
 
   magic-string@0.30.21:
     dependencies:

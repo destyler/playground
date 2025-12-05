@@ -185,6 +185,40 @@ function serializeFilesToMap(files: File[]): string {
   return JSON.stringify(filesMap).replace(/<\//g, '\\x3C/')
 }
 
+/**
+ * Creates UnoCSS style tag with generated CSS
+ */
+function createUnoStyleTag(unoCSS: string): string {
+  if (!unoCSS) return ''
+  // Escape any closing style tags in the CSS
+  const escapedCSS = unoCSS.replace(/<\/style/gi, '<\\/style')
+  return `<style id="__unocss__">${escapedCSS}</style>`
+}
+
+/**
+ * Creates UnoCSS update script for hot reload
+ */
+function createUnoUpdateScript(): string {
+  return `
+    <script>
+      // Listen for UnoCSS updates via postMessage
+      window.addEventListener('message', (e) => {
+        if (e.data.type === 'UPDATE_UNOCSS') {
+          const styleEl = document.getElementById('__unocss__');
+          if (styleEl) {
+            styleEl.textContent = e.data.css;
+          } else {
+            const newStyle = document.createElement('style');
+            newStyle.id = '__unocss__';
+            newStyle.textContent = e.data.css;
+            document.head.appendChild(newStyle);
+          }
+        }
+      });
+    </script>
+  `
+}
+
 // ============================================================================
 // Main Export
 // ============================================================================
@@ -195,12 +229,14 @@ function serializeFilesToMap(files: File[]): string {
  * @param framework - The current framework
  * @param files - Array of files to include
  * @param userImportMap - Optional user-defined import map with direct imports
+ * @param unoCSS - Optional UnoCSS generated CSS
  * @returns Complete HTML string
  */
 export function generateHtml(
   framework: Framework,
   files: File[],
   userImportMap?: UserImportMap,
+  unoCSS?: string,
 ): string {
   const coreImports = CORE_IMPORTS[framework]
   const finalImportMap = mergeImportMaps(coreImports, userImportMap)
@@ -210,6 +246,10 @@ export function generateHtml(
   const serializedImportMap = JSON.stringify(finalImportMap).replace(/<\//g, '\\x3C/')
   const errorHandling = createErrorHandlingScript()
   const scriptContent = SCRIPT_GENERATORS[framework](serializedFiles, serializedImportMap)
+
+  // UnoCSS styles
+  const unoStyles = createUnoStyleTag(unoCSS || '')
+  const unoUpdateScript = createUnoUpdateScript()
 
   // For Vue, we need to load Vue ESM first, expose it globally, then load vue3-sfc-loader
   let frameworkSetup = ''
@@ -241,8 +281,10 @@ export function generateHtml(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview</title>
+  ${unoStyles}
   ${importMapScript}
   ${errorHandling}
+  ${unoUpdateScript}
   ${frameworkSetup}
 </head>
 <body>

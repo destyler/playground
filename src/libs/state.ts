@@ -11,6 +11,7 @@ import type { FrameworkOption } from '../templates/types'
 export const CONFIG_FILES = {
   TSCONFIG: 'tsconfig.json',
   IMPORT_MAP: 'import-map.json',
+  UNO_CONFIG: 'uno.config.ts',
 } as const
 
 /**
@@ -50,6 +51,16 @@ export interface PlaygroundState {
   tsconfigContent: string
   /** Content of import-map.json (read-only, from framework template) */
   importMapContent: string
+  /** Content of uno.config.ts for UnoCSS configuration */
+  unoConfigContent: string
+  /** Whether UnoCSS is enabled */
+  unoEnabled: boolean
+  /** UnoCSS configuration error */
+  unoConfigError: Error | null
+  /** Generated UnoCSS CSS */
+  generatedUnoCSS: string
+  /** Matched UnoCSS utilities */
+  matchedUtilities: string[]
 }
 
 // ============================================================================
@@ -67,4 +78,9 @@ export const state: PlaygroundState = {
   activeConfigFile: null,
   tsconfigContent: '',
   importMapContent: '',
+  unoConfigContent: '',
+  unoEnabled: true,
+  unoConfigError: null,
+  generatedUnoCSS: '',
+  matchedUtilities: [],
 }

@@ -39,6 +39,10 @@ const vueDependencies: Record<string, string> = {
   '@vue/runtime-core': 'latest',
   '@vue/runtime-dom': 'latest',
   '@vue/shared': 'latest',
+  // UnoCSS types for uno.config.ts
+  'unocss': 'latest',
+  '@unocss/core': 'latest',
+  '@unocss/preset-uno': 'latest',
 }
 
 /**

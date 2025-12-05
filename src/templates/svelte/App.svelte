@@ -7,26 +7,14 @@
   let message = $derived(`${greeting} ${name}!`);
 </script>
 
-<div class="container">
-  <h1>{message}</h1>
-  <input bind:value={name} placeholder="Enter your name" />
-  <Counter />
+<div class="min-h-screen bg-gray-100 dark:bg-gray-900 p-8">
+  <div class="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+    <h1 class="text-2xl font-bold text-orange-500 mb-4">{message}</h1>
+    <input
+      bind:value={name}
+      placeholder="Enter your name"
+      class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white mb-4"
+    />
+    <Counter />
+  </div>
 </div>
-
-<style>
-  .container {
-    text-align: center;
-    padding: 20px;
-    font-family: system-ui, sans-serif;
-  }
-  h1 {
-    color: #ff3e00;
-  }
-  input {
-    padding: 8px 12px;
-    font-size: 16px;
-    border: 2px solid #ff3e00;
-    border-radius: 4px;
-    margin-bottom: 20px;
-  }
-</style>

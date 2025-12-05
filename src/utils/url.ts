@@ -13,6 +13,7 @@ export interface UrlState {
   files: Record<string, string>
   tsconfig?: string
   importMap?: string
+  unoConfig?: string
 }
 
 // ============================================================================
@@ -115,18 +116,24 @@ export function updateUrlHash(
   files: File[],
   tsconfig?: string,
   importMap?: string,
+  unoConfig?: string,
 ): void {
   const urlState: UrlState = {
     framework,
     files: filesToRecord(files),
   }
 
-  // Only include config if it has been customized (not default)
+  // Always include configs (they're needed to restore state correctly)
   if (tsconfig) {
     urlState.tsconfig = tsconfig
   }
   if (importMap) {
     urlState.importMap = importMap
+  }
+  // Always save unoConfig, even if it's the default value
+  // This ensures the config is preserved when sharing
+  if (unoConfig !== undefined) {
+    urlState.unoConfig = unoConfig
   }
 
   const hash = serializeState(urlState)

@@ -18,6 +18,7 @@ import {
   updateActiveModel,
 } from './editor'
 import { CONFIG_FILES, state } from './state'
+import { generateCSSFromFiles } from './unocss'
 
 // ============================================================================
 // Constants
@@ -30,6 +31,7 @@ const DEBOUNCE_DELAYS = {
   IFRAME_UPDATE: 1000,
   URL_UPDATE: 500,
   TSCONFIG_UPDATE: 1000,
+  UNO_UPDATE: 300,
   CLICK: 200,
   URL_RESTORE: 100,
   URL_RESTORE_COMPLETE: 200,
@@ -54,6 +56,7 @@ let isRestoringFromUrl = false
 let updateTimer: ReturnType<typeof setTimeout> | null = null
 let urlUpdateTimer: ReturnType<typeof setTimeout> | null = null
 let tsconfigUpdateTimer: ReturnType<typeof setTimeout> | null = null
+let unoUpdateTimer: ReturnType<typeof setTimeout> | null = null
 
 // ============================================================================
 // Initialization
@@ -84,6 +87,10 @@ export async function initPlayground(): Promise<void> {
   initConfigContent()
   renderFileTabs()
   setupConfigButtons()
+
+  // Generate initial UnoCSS
+  await generateUnoCSS()
+
   updateIframe()
 
   // Initialize editor
@@ -113,7 +120,7 @@ function initializeState(urlState: ReturnType<typeof getStateFromUrl>): void {
  * Restores state from URL parameters
  */
 function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFromUrl>>): void {
-  const { framework, files: filesRecord, tsconfig, importMap } = urlState
+  const { framework, files: filesRecord, tsconfig, importMap, unoConfig } = urlState
   const files = recordToFiles(filesRecord)
 
   state.activeFramework = framework
@@ -126,6 +133,10 @@ function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFro
 
   if (importMap) {
     state.importMapContent = importMap
+  }
+
+  if (unoConfig) {
+    state.unoConfigContent = unoConfig
   }
 
   // Prevent handleFrameworkChange from resetting files
@@ -161,6 +172,7 @@ function setDefaultState(): void {
 function setupEditorCallbacks(): void {
   onEditorFileChange(() => {
     renderFileTabs()
+    scheduleUnoUpdate()
     scheduleIframeUpdate()
     scheduleUrlUpdate()
   })
@@ -175,6 +187,11 @@ function setupEditorCallbacks(): void {
     }
     else if (fileName === CONFIG_FILES.IMPORT_MAP) {
       // import-map changed - refresh preview to apply new dependencies
+      scheduleIframeUpdate()
+    }
+    else if (fileName === CONFIG_FILES.UNO_CONFIG) {
+      // uno config changed - regenerate CSS
+      scheduleUnoUpdate()
       scheduleIframeUpdate()
     }
   })
@@ -364,15 +381,17 @@ function createAddFileButton(): HTMLButtonElement {
 function setupConfigButtons(): void {
   const tsconfigBtn = document.getElementById('tsconfig-btn')
   const importMapBtn = document.getElementById('import-map-btn')
+  const unoConfigBtn = document.getElementById('uno-config-btn')
 
   tsconfigBtn?.addEventListener('click', () => toggleConfigFile(CONFIG_FILES.TSCONFIG))
   importMapBtn?.addEventListener('click', () => toggleConfigFile(CONFIG_FILES.IMPORT_MAP))
+  unoConfigBtn?.addEventListener('click', () => toggleConfigFile(CONFIG_FILES.UNO_CONFIG))
 }
 
 /**
  * Toggles a config file in the editor
  */
-function toggleConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG | typeof CONFIG_FILES.IMPORT_MAP): void {
+function toggleConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG | typeof CONFIG_FILES.IMPORT_MAP | typeof CONFIG_FILES.UNO_CONFIG): void {
   if (state.activeConfigFile === configFile) {
     // Toggle off - go back to user file
     state.activeConfigFile = null
@@ -392,9 +411,11 @@ function toggleConfigFile(configFile: typeof CONFIG_FILES.TSCONFIG | typeof CONF
 function updateConfigButtonStates(): void {
   const tsconfigBtn = document.getElementById('tsconfig-btn')
   const importMapBtn = document.getElementById('import-map-btn')
+  const unoConfigBtn = document.getElementById('uno-config-btn')
 
   tsconfigBtn?.classList.toggle('active', state.activeConfigFile === CONFIG_FILES.TSCONFIG)
   importMapBtn?.classList.toggle('active', state.activeConfigFile === CONFIG_FILES.IMPORT_MAP)
+  unoConfigBtn?.classList.toggle('active', state.activeConfigFile === CONFIG_FILES.UNO_CONFIG)
 }
 
 // ============================================================================
@@ -551,7 +572,7 @@ function scheduleIframeUpdate(): void {
 function scheduleUrlUpdate(): void {
   if (urlUpdateTimer) clearTimeout(urlUpdateTimer)
   urlUpdateTimer = setTimeout(() => {
-    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent)
+    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent, state.unoConfigContent)
   }, DEBOUNCE_DELAYS.URL_UPDATE)
 }
 
@@ -563,6 +584,54 @@ function scheduleTsconfigUpdate(): void {
   tsconfigUpdateTimer = setTimeout(refreshLanguageService, DEBOUNCE_DELAYS.TSCONFIG_UPDATE)
 }
 
+/**
+ * Schedules UnoCSS update with debounce
+ */
+function scheduleUnoUpdate(): void {
+  if (unoUpdateTimer) clearTimeout(unoUpdateTimer)
+  unoUpdateTimer = setTimeout(async () => {
+    await generateUnoCSS()
+    sendUnoCSSToIframe()
+  }, DEBOUNCE_DELAYS.UNO_UPDATE)
+}
+
+/**
+ * Generates UnoCSS from all files
+ */
+async function generateUnoCSS(): Promise<void> {
+  if (!state.unoEnabled) {
+    state.generatedUnoCSS = ''
+    state.matchedUtilities = []
+    return
+  }
+
+  try {
+    const result = await generateCSSFromFiles(
+      state.files,
+      state.unoConfigContent,
+    )
+
+    state.generatedUnoCSS = result.css
+    state.matchedUtilities = result.matched
+    state.unoConfigError = null
+  }
+  catch (e) {
+    console.error('[UnoCSS] Generation error:', e)
+    state.unoConfigError = e as Error
+  }
+}
+
+/**
+ * Sends UnoCSS to iframe via postMessage
+ */
+function sendUnoCSSToIframe(): void {
+  if (!iframeRef) return
+  iframeRef.contentWindow?.postMessage({
+    type: 'UPDATE_UNOCSS',
+    css: state.generatedUnoCSS,
+  }, '*')
+}
+
 // ============================================================================
 // Preview Iframe
 // ============================================================================
@@ -570,13 +639,16 @@ function scheduleTsconfigUpdate(): void {
 /**
  * Updates the preview iframe
  */
-function updateIframe(): void {
+async function updateIframe(): Promise<void> {
   if (!iframeRef) return
 
   if (previousFramework !== state.activeFramework) {
     isIframeLoaded = false
     previousFramework = state.activeFramework
   }
+
+  // Always regenerate UnoCSS before updating iframe
+  await generateUnoCSS()
 
   if (isIframeLoaded) {
     // Hot update: send files via postMessage
@@ -586,11 +658,13 @@ function updateIframe(): void {
     }, {})
 
     iframeRef.contentWindow?.postMessage({ type: 'UPDATE_FILES', files: filesMap }, '*')
+    // Also send updated UnoCSS
+    sendUnoCSSToIframe()
   }
   else {
-    // Full reload: regenerate HTML
+    // Full reload: regenerate HTML with UnoCSS included
     const importMap = getImportMap()
-    iframeRef.srcdoc = generateHtml(state.activeFramework, state.files, importMap)
+    iframeRef.srcdoc = generateHtml(state.activeFramework, state.files, importMap, state.generatedUnoCSS)
     setTimeout(() => {
       isIframeLoaded = true
     }, DEBOUNCE_DELAYS.IFRAME_LOAD)
