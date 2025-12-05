@@ -5,9 +5,9 @@ export default function Counter() {
 
   return (
     <button onClick={() => setCount(c => c + 1)}>
-      Count is: 
-{' '}
-{count()}
+      Count is:
+      {' '}
+      {count()}
     </button>
   )
 }

@@ -8,7 +8,9 @@ const props = defineProps<{
 <template>
   <div class="comp">
     <p>Message: {{ props.message }}</p>
-    <p v-if="props.count !== undefined">Count: {{ props.count }}</p>
+    <p v-if="props.count !== undefined">
+      Count: {{ props.count }}
+    </p>
   </div>
 </template>
 

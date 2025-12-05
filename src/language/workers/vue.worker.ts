@@ -3,36 +3,36 @@
  *
  * This version follows vuejs/repl implementation for full component props support.
  */
-import type { LanguageServiceEnvironment, Language } from '@volar/monaco/worker'
+import type { Language, LanguageServiceEnvironment } from '@volar/monaco/worker'
 import type { VueCompilerOptions } from '@vue/language-core'
+import type { LanguageService } from '@vue/language-service'
 import type * as monaco from 'monaco-editor-core'
 import { createNpmFileSystem } from '@volar/jsdelivr'
 import { createTypeScriptWorkerLanguageService } from '@volar/monaco/worker'
 import {
-  VueVirtualCode,
   createVueLanguagePlugin,
   generateGlobalTypes,
   getDefaultCompilerOptions,
   getGlobalTypesFileName,
+  VueVirtualCode,
 } from '@vue/language-core'
-import type { LanguageService } from '@vue/language-service'
 import { createVueLanguageServicePlugins } from '@vue/language-service'
-// @ts-expect-error - worker export
-import * as worker from 'monaco-editor-core/esm/vs/editor/editor.worker'
-import { create as createTypeScriptDirectiveCommentPlugin } from 'volar-service-typescript/lib/plugins/directiveComment'
-import { create as createTypeScriptSemanticPlugin } from 'volar-service-typescript/lib/plugins/semantic'
-import { URI } from 'vscode-uri'
-
 // Import @vue/typescript-plugin helpers
 import { createVueLanguageServiceProxy } from '@vue/typescript-plugin/lib/common'
 import { getComponentDirectives } from '@vue/typescript-plugin/lib/requests/getComponentDirectives'
 import { getComponentEvents } from '@vue/typescript-plugin/lib/requests/getComponentEvents'
 import { getComponentNames } from '@vue/typescript-plugin/lib/requests/getComponentNames'
+
 import { getComponentProps } from '@vue/typescript-plugin/lib/requests/getComponentProps'
 import { getComponentSlots } from '@vue/typescript-plugin/lib/requests/getComponentSlots'
 import { getElementAttrs } from '@vue/typescript-plugin/lib/requests/getElementAttrs'
 import { getElementNames } from '@vue/typescript-plugin/lib/requests/getElementNames'
 import { isRefAtPosition } from '@vue/typescript-plugin/lib/requests/isRefAtPosition'
+// @ts-expect-error - worker export
+import * as worker from 'monaco-editor-core/esm/vs/editor/editor.worker'
+import { create as createTypeScriptDirectiveCommentPlugin } from 'volar-service-typescript/lib/plugins/directiveComment'
+import { create as createTypeScriptSemanticPlugin } from 'volar-service-typescript/lib/plugins/semantic'
+import { URI } from 'vscode-uri'
 
 export interface CreateData {
   tsconfig: {
@@ -43,7 +43,7 @@ export interface CreateData {
 }
 
 export interface WorkerHost {
-  onFetchCdnFile(uri: string, text: string): void
+  onFetchCdnFile: (uri: string, text: string) => void
 }
 
 export interface WorkerMessage {
@@ -59,11 +59,11 @@ let ts: typeof import('typescript')
 let locale: string | undefined
 
 // Handle init message to load TypeScript
-self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
+globalThis.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
   if (msg.data?.event === 'init') {
     locale = msg.data.tsLocale
     ts = await importTsFromCdn(msg.data.tsVersion)
-    self.postMessage('inited')
+    globalThis.postMessage('inited')
     return
   }
 
@@ -205,13 +205,12 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
             return result
           },
           getComponentProps(fileName: string, tag: string) {
-
             const program = getProgram()
             const checker = program.getTypeChecker()
             const sourceFiles = program.getSourceFiles()
 
             // Check Vue types availability
-            const vueFiles = sourceFiles.filter(sf => sf.fileName.includes('/vue/') || sf.fileName.includes('/vue.d.ts'))
+            const _vueFiles = sourceFiles.filter(sf => sf.fileName.includes('/vue/') || sf.fileName.includes('/vue.d.ts'))
 
             // Check the current file's __VLS_self type
             const currentFile = program.getSourceFile(fileName)
@@ -224,7 +223,8 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
                   }
                   let result: any
                   ts.forEachChild(node, (child) => {
-                    if (!result) result = find(child)
+                    if (!result)
+                      result = find(child)
                   })
                   return result
                 }
@@ -238,23 +238,23 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
                 // Try to get the construct signatures
                 const constructSigs = selfType.getConstructSignatures()
                 if (constructSigs.length > 0) {
-                  const instanceType = constructSigs[0].getReturnType()
+                  const _instanceType = constructSigs[0].getReturnType()
                 }
               }
 
               const ctxNode = findNode('__VLS_ctx')
               if (ctxNode) {
-                const ctxType = checker.getTypeAtLocation(ctxNode)
+                const _ctxType = checker.getTypeAtLocation(ctxNode)
               }
 
               const componentsNode = findNode('__VLS_components')
               if (componentsNode) {
-                const componentsType = checker.getTypeAtLocation(componentsNode)
+                const _componentsType = checker.getTypeAtLocation(componentsNode)
               }
 
               // Print the generated code around __VLS_self
               const code = currentFile.getText()
-              const selfIndex = code.indexOf('const __VLS_self')
+              const _selfIndex = code.indexOf('const __VLS_self')
             }
 
             // Call the actual getComponentProps
@@ -292,11 +292,13 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
             let text = ''
             if (typeof hover?.contents === 'string') {
               text = hover.contents
-            } else if (Array.isArray(hover?.contents)) {
+            }
+            else if (Array.isArray(hover?.contents)) {
               text = hover.contents
                 .map((c: string | { value: string }) => (typeof c === 'string' ? c : c.value))
                 .join('\n')
-            } else if (hover) {
+            }
+            else if (hover) {
               text = hover.contents.value
             }
             text = text.replace(/```typescript/g, '')
@@ -337,18 +339,18 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
           'typescript-semantic-tokens',
         ])
         return plugins.filter(
-          (plugin) => !ignoreVueServicePlugins.has(plugin.name!),
+          plugin => !ignoreVueServicePlugins.has(plugin.name!),
         )
 
         function getVirtualCode(fileName: string) {
           const uri = asUri(fileName)
           const sourceScript = getLanguageService().context.language.scripts.get(uri)
           if (!sourceScript) {
-            throw new Error('No source script found for file: ' + fileName)
+            throw new Error(`No source script found for file: ${fileName}`)
           }
           const virtualCode = sourceScript.generated?.root
           if (!(virtualCode instanceof VueVirtualCode)) {
-            throw new Error('No virtual code found for file: ' + fileName)
+            throw new TypeError(`No virtual code found for file: ${fileName}`)
           }
           return {
             sourceScript,
@@ -357,8 +359,8 @@ self.onmessage = async (msg: MessageEvent<WorkerMessage>) => {
         }
 
         function getProgram() {
-          const tsService: import('typescript').LanguageService =
-            getLanguageService().context.inject('typescript/languageService')
+          const tsService: import('typescript').LanguageService
+            = getLanguageService().context.inject('typescript/languageService')
           return tsService.getProgram()!
         }
 

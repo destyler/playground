@@ -3,15 +3,13 @@
  * This file only contains the preview runtime script generation
  */
 
-export function generateSvelteScript(serializedFiles: string, version?: string) {
-  const versionSuffix = version ? `@${version}` : ''
-
+export function generateSvelteScript(serializedFiles: string) {
   return `
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="module">
-      import { compile } from "https://unpkg.com/svelte${versionSuffix}/compiler.js?module";
-      import * as Svelte from "https://unpkg.com/svelte${versionSuffix}?module";
-      import * as SvelteInternal from "https://unpkg.com/svelte${versionSuffix}/internal/client?module";
+      import { compile } from "https://esm.sh/svelte/compiler";
+      import * as Svelte from "https://esm.sh/svelte";
+      import * as SvelteInternal from "https://esm.sh/svelte/internal/client";
 
       window.svelteCompile = compile;
       window.Svelte = Svelte;

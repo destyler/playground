@@ -3,13 +3,11 @@
  * This file only contains the preview runtime script generation
  */
 
-export function generateSolidScript(serializedFiles: string, version?: string) {
-  const versionSuffix = version ? `@${version}` : ''
-
+export function generateSolidScript(serializedFiles: string) {
   return `
     <script type="module">
-      import * as SolidJS from "https://unpkg.com/solid-js${versionSuffix}/dist/solid.js?module";
-      import * as SolidWeb from "https://unpkg.com/solid-js${versionSuffix}/web/dist/web.js?module";
+      import * as SolidJS from "https://esm.sh/solid-js";
+      import * as SolidWeb from "https://esm.sh/solid-js/web";
 
       window.SolidJS = SolidJS;
       window.SolidWeb = SolidWeb;
@@ -18,7 +16,7 @@ export function generateSolidScript(serializedFiles: string, version?: string) {
     </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="module">
-      import babelPresetSolid from "https://unpkg.com/babel-preset-solid${versionSuffix}?module";
+      import babelPresetSolid from "https://esm.sh/babel-preset-solid";
 
       window.babelPresetSolid = babelPresetSolid;
 

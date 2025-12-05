@@ -6,9 +6,15 @@ export interface File {
   active?: boolean
 }
 
+export interface ImportMap {
+  imports: Record<string, string>
+}
+
 export interface FrameworkTemplate {
   name: string
   color: string
   cdn: string[]
   defaultFiles: File[]
+  tsconfig: object
+  importMap: ImportMap
 }

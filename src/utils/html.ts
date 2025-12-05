@@ -5,58 +5,54 @@ import { generateSvelteScript } from '../preview/svelte'
 import { generateVueScript } from '../preview/vue'
 import { FRAMEWORKS } from '../templates'
 
-export function generateHtml(framework: Framework, files: File[], importMap?: object) {
+/**
+ * Core dependencies for each framework (fixed, not user-modifiable)
+ */
+const CORE_IMPORTS: Record<Framework, Record<string, string>> = {
+  vue: {
+    vue: 'https://esm.sh/vue',
+  },
+  react: {
+    'react': 'https://esm.sh/react',
+    'react-dom': 'https://esm.sh/react-dom',
+    'react-dom/client': 'https://esm.sh/react-dom/client',
+  },
+  solid: {
+    'solid-js': 'https://esm.sh/solid-js',
+    'solid-js/web': 'https://esm.sh/solid-js/web',
+  },
+  svelte: {
+    svelte: 'https://esm.sh/svelte',
+  },
+}
+
+export function generateHtml(framework: Framework, files: File[], userImportMap?: object) {
   const config = FRAMEWORKS[framework]
-
-  // Parse import map to potentially override CDN versions
-  let cdns = config.cdn.slice() // Clone the array
-  const imports = (importMap as any)?.imports || {}
-
-  // Extract version helper
-  function extractVersion(url: string): string | null {
-    const match = url.match(/@(\d+(?:\.\d+)?(?:\.\d+)?)/)
-    return match ? match[1] : null
-  }
-
-  // For Vue, check if version is overridden in import map
-  if (framework === 'vue' && imports.vue) {
-    const version = extractVersion(imports.vue)
-    if (version) {
-      cdns = [
-        `https://unpkg.com/vue@${version}/dist/vue.global.js`,
-        'https://unpkg.com/vue3-sfc-loader/dist/vue3-sfc-loader.js',
-      ]
-    }
-  }
-
-  // For React, check if version is overridden in import map
-  let reactVersion: string | null = null
-  if (framework === 'react' && imports.react) {
-    reactVersion = extractVersion(imports.react)
-    if (reactVersion) {
-      const majorVersion = Number.parseInt(reactVersion.split('.')[0], 10)
-      // React 19+ uses ESM, so we don't need UMD CDNs
-      if (majorVersion >= 19) {
-        cdns = [] // ESM will be loaded in the script
-      }
-      else {
-        cdns = [
-          `https://unpkg.com/react@${reactVersion}/umd/react.development.js`,
-          `https://unpkg.com/react-dom@${reactVersion}/umd/react-dom.development.js`,
-          'https://unpkg.com/@babel/standalone/babel.min.js',
-        ]
-      }
-    }
-  }
-
+  const cdns = config.cdn.slice()
   const cdnScripts = cdns.map((url: string) => `<script src="${url}"></script>`).join('\n')
 
-  let scriptContent = ''
+  // Merge core imports with user imports
+  // Core imports are fixed and cannot be overridden by user
+  const coreImports = CORE_IMPORTS[framework]
+  const userImports = (userImportMap as any)?.imports || {}
 
-  // Generate import map script if provided
-  const importMapScript = importMap
-    ? `<script type="importmap">${JSON.stringify(importMap)}</script>`
-    : ''
+  // Filter out core dependencies from user imports (prevent override)
+  const filteredUserImports: Record<string, string> = {}
+  for (const [key, value] of Object.entries(userImports)) {
+    if (!(key in coreImports)) {
+      filteredUserImports[key] = value as string
+    }
+  }
+
+  // Combine: core imports + user imports
+  const finalImportMap = {
+    imports: {
+      ...coreImports,
+      ...filteredUserImports,
+    },
+  }
+
+  const importMapScript = `<script type="importmap">${JSON.stringify(finalImportMap)}</script>`
 
   const filesMap = files.reduce((acc, file) => {
     acc[file.name] = file.content
@@ -113,19 +109,19 @@ export function generateHtml(framework: Framework, files: File[], importMap?: ob
     </script>
   `
 
+  let scriptContent = ''
+
   if (framework === 'vue') {
     scriptContent = generateVueScript(serializedFiles)
   }
   else if (framework === 'react') {
-    scriptContent = generateReactScript(serializedFiles, reactVersion || undefined)
+    scriptContent = generateReactScript(serializedFiles)
   }
   else if (framework === 'solid') {
-    const solidVersion = imports['solid-js'] ? extractVersion(imports['solid-js']) : null
-    scriptContent = generateSolidScript(serializedFiles, solidVersion || undefined)
+    scriptContent = generateSolidScript(serializedFiles)
   }
   else if (framework === 'svelte') {
-    const svelteVersion = imports.svelte ? extractVersion(imports.svelte) : null
-    scriptContent = generateSvelteScript(serializedFiles, svelteVersion || undefined)
+    scriptContent = generateSvelteScript(serializedFiles)
   }
 
   return `

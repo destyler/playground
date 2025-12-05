@@ -9,6 +9,7 @@ import ReactWorker from '../language/workers/react.worker?worker'
 import SolidWorker from '../language/workers/solid.worker?worker'
 import SvelteWorker from '../language/workers/svelte.worker?worker'
 import VueWorker from '../language/workers/vue.worker?worker'
+import { FRAMEWORKS } from '../templates'
 import { registerHighlighter } from '../theme/highlighter'
 import { IMPORT_MAP_FILE, state, TSCONFIG_FILE } from './state'
 
@@ -464,38 +465,16 @@ export function disposeOldModel(fileName: string) {
  * Get default import map for the current framework
  */
 function getDefaultImportMap(): object {
-  const config = getFrameworkConfig(state.activeFramework)
-  if (!config)
-    return { imports: {} }
-
-  // Generate import map based on framework dependencies
-  const imports: Record<string, string> = {}
-
-  if (config.type === 'vue') {
-    imports.vue = 'https://esm.sh/vue@3'
-  }
-  else if (config.type === 'react') {
-    imports.react = 'https://esm.sh/react@18'
-    imports['react-dom'] = 'https://esm.sh/react-dom@18'
-    imports['react-dom/client'] = 'https://esm.sh/react-dom@18/client'
-  }
-  else if (config.type === 'solid') {
-    imports['solid-js'] = 'https://esm.sh/solid-js@1'
-    imports['solid-js/web'] = 'https://esm.sh/solid-js@1/web'
-  }
-  else if (config.type === 'svelte') {
-    imports.svelte = 'https://esm.sh/svelte@5'
-  }
-
-  return { imports }
+  const template = FRAMEWORKS[state.activeFramework]
+  return template?.importMap || { imports: {} }
 }
 
 /**
  * Get default tsconfig for the current framework
  */
 function getDefaultTsconfig(): object {
-  const config = getFrameworkConfig(state.activeFramework)
-  return config?.tsconfig || {}
+  const template = FRAMEWORKS[state.activeFramework]
+  return template?.tsconfig || {}
 }
 
 /**
