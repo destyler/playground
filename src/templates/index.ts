@@ -21,7 +21,7 @@ export const VUE_TEMPLATE: FrameworkTemplate = {
   name: 'Vue',
   color: '#42b883',
   cdn: [
-    'https://unpkg.com/vue@3/dist/vue.global.js',
+    'https://unpkg.com/vue/dist/vue.global.js',
     'https://unpkg.com/vue3-sfc-loader/dist/vue3-sfc-loader.js',
   ],
   defaultFiles: getFilesFromGlob(vueTemplates, 'App.vue'),
@@ -31,8 +31,6 @@ export const REACT_TEMPLATE: FrameworkTemplate = {
   name: 'React',
   color: '#61dafb',
   cdn: [
-    'https://unpkg.com/react@18/umd/react.development.js',
-    'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
     'https://unpkg.com/@babel/standalone/babel.min.js',
   ],
   defaultFiles: getFilesFromGlob(reactTemplates, 'App.tsx'),
@@ -49,7 +47,7 @@ export const SVELTE_TEMPLATE: FrameworkTemplate = {
   name: 'Svelte',
   color: '#ff3e00',
   cdn: [
-    'https://unpkg.com/@babel/standalone@7.26.2/babel.min.js',
+    'https://unpkg.com/@babel/standalone/babel.min.js',
   ],
   defaultFiles: getFilesFromGlob(svelteTemplates, 'App.svelte'),
 }

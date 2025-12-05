@@ -4,14 +4,14 @@
  */
 
 export function generateSvelteScript(serializedFiles: string, version?: string) {
-  const svelteVersion = version || '5.14.1'
+  const versionSuffix = version ? `@${version}` : ''
 
   return `
-    <script src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="module">
-      import { compile } from "https://esm.sh/svelte@${svelteVersion}/compiler";
-      import * as Svelte from "https://esm.sh/svelte@${svelteVersion}";
-      import * as SvelteInternal from "https://esm.sh/svelte@${svelteVersion}/internal/client";
+      import { compile } from "https://unpkg.com/svelte${versionSuffix}/compiler.js?module";
+      import * as Svelte from "https://unpkg.com/svelte${versionSuffix}?module";
+      import * as SvelteInternal from "https://unpkg.com/svelte${versionSuffix}/internal/client?module";
 
       window.svelteCompile = compile;
       window.Svelte = Svelte;

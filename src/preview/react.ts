@@ -4,28 +4,29 @@
  */
 
 export function generateReactScript(serializedFiles: string, version?: string) {
-  const reactVersion = version || '18'
-
-  // For React 19+, use ESM imports; for React 18, use UMD globals
-  const majorVersion = Number.parseInt(reactVersion.split('.')[0], 10)
-  const useESM = majorVersion >= 19
-
-  if (useESM) {
-    return generateReactESMScript(serializedFiles, reactVersion)
+  // If version is specified, check if it's React 18 or below for UMD
+  if (version) {
+    const majorVersion = Number.parseInt(version.split('.')[0], 10)
+    if (majorVersion < 19) {
+      return generateReactUMDScript(serializedFiles)
+    }
+    return generateReactESMScript(serializedFiles, version)
   }
 
-  return generateReactUMDScript(serializedFiles)
+  // Default: use ESM (latest React)
+  return generateReactESMScript(serializedFiles)
 }
 
 /**
  * Generate React script using ESM imports (for React 19+)
  */
-function generateReactESMScript(serializedFiles: string, version: string) {
+function generateReactESMScript(serializedFiles: string, version?: string) {
+  const versionSuffix = version ? `@${version}` : ''
   return `
     <script type="module">
-      import * as React from "https://esm.sh/react@${version}";
-      import * as ReactDOM from "https://esm.sh/react-dom@${version}";
-      import * as ReactDOMClient from "https://esm.sh/react-dom@${version}/client";
+      import * as React from "https://unpkg.com/react${versionSuffix}?module";
+      import * as ReactDOM from "https://unpkg.com/react-dom${versionSuffix}?module";
+      import * as ReactDOMClient from "https://unpkg.com/react-dom${versionSuffix}/client?module";
 
       window.React = React;
       window.ReactDOM = ReactDOM;

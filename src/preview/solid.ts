@@ -4,22 +4,21 @@
  */
 
 export function generateSolidScript(serializedFiles: string, version?: string) {
-  const solidVersion = version || '1.8.16'
-  const presetVersion = version || '1.8.16'
+  const versionSuffix = version ? `@${version}` : ''
 
   return `
     <script type="module">
-      import * as SolidJS from "https://esm.sh/solid-js@${solidVersion}";
-      import * as SolidWeb from "https://esm.sh/solid-js@${solidVersion}/web";
+      import * as SolidJS from "https://unpkg.com/solid-js${versionSuffix}/dist/solid.js?module";
+      import * as SolidWeb from "https://unpkg.com/solid-js${versionSuffix}/web/dist/web.js?module";
 
       window.SolidJS = SolidJS;
       window.SolidWeb = SolidWeb;
 
       if (window.startApp) window.startApp();
     </script>
-    <script src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="module">
-      import babelPresetSolid from "https://esm.sh/babel-preset-solid@${presetVersion}";
+      import babelPresetSolid from "https://unpkg.com/babel-preset-solid${versionSuffix}?module";
 
       window.babelPresetSolid = babelPresetSolid;
 
