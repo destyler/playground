@@ -5,3 +5,10 @@ export interface File {
   content: string
   active?: boolean
 }
+
+export interface FrameworkTemplate {
+  name: string
+  color: string
+  cdn: string[]
+  defaultFiles: File[]
+}

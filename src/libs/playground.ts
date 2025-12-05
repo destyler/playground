@@ -1,5 +1,6 @@
-import type { File, Framework } from '../utils/templates'
-import { FRAMEWORKS, generateHtml } from '../utils/templates'
+import type { File, Framework } from '../templates'
+import { FRAMEWORKS } from '../templates'
+import { generateHtml } from '../utils/html'
 import { getStateFromUrl, recordToFiles, updateUrlHash } from '../utils/url'
 import { disposeOldModel, getImportMap, initConfigContent, initEditor, onEditorConfigChange, onEditorFileChange, refreshLanguageService, resetConfigContent, setEditorToConfigFile, setEditorToUserFile, setupLanguageService, syncFilesToModels, updateActiveModel } from './editor'
 import { IMPORT_MAP_FILE, state, TSCONFIG_FILE } from './state'

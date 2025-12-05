@@ -1,4 +1,4 @@
-import type { File, Framework } from './templates/types'
+import type { File, Framework } from '../templates/types'
 import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 
 /**

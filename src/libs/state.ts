@@ -1,4 +1,4 @@
-import type { File, Framework } from '../utils/templates'
+import type { File, Framework } from '../templates'
 
 export const frameworks: {
   value: Framework

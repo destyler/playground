@@ -1,21 +1,9 @@
-import type { File, Framework } from './templates/types'
-import { generateReactScript } from '../workers/react'
-import { generateSolidScript } from '../workers/solid'
-import { generateSvelteScript } from '../workers/svelte'
-import { generateVueScript } from '../workers/vue'
-import { REACT_TEMPLATE } from './templates/react'
-import { SOLID_TEMPLATE } from './templates/solid'
-import { SVELTE_TEMPLATE } from './templates/svelte'
-import { VUE_TEMPLATE } from './templates/vue'
-
-export type { File, Framework }
-
-export const FRAMEWORKS: Record<Framework, { name: string, color: string, cdn: string[], defaultFiles: File[] }> = {
-  vue: VUE_TEMPLATE,
-  react: REACT_TEMPLATE,
-  solid: SOLID_TEMPLATE,
-  svelte: SVELTE_TEMPLATE,
-}
+import type { File, Framework } from '../templates'
+import { generateReactScript } from '../preview/react'
+import { generateSolidScript } from '../preview/solid'
+import { generateSvelteScript } from '../preview/svelte'
+import { generateVueScript } from '../preview/vue'
+import { FRAMEWORKS } from '../templates'
 
 export function generateHtml(framework: Framework, files: File[], importMap?: object) {
   const config = FRAMEWORKS[framework]

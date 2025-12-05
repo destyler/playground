@@ -1,5 +1,5 @@
 ---
-import { FRAMEWORKS } from '../utils/templates'
+import { FRAMEWORKS } from '../templates'
 
 const frameworks = Object.entries(FRAMEWORKS).map(([key, config]) => ({
   value: key,
@@ -163,7 +163,7 @@ const frameworks = Object.entries(FRAMEWORKS).map(([key, config]) => ({
 </style>
 
 <script>
-import type { Framework } from '../utils/templates'
+import type { Framework } from '../templates'
 import * as select from '@destyler/select'
 import { Component, normalizeProps, spreadProps } from '@destyler/vanilla'
 

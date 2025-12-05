@@ -1,4 +1,4 @@
-import type { editor, IDisposable, languages } from 'monaco-editor'
+import type { editor, IDisposable, languages } from 'monaco-editor-core'
 import * as volar from '@volar/monaco'
 
 export interface WorkerHost {

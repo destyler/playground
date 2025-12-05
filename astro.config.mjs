@@ -24,6 +24,7 @@ export default defineConfig({
     Solid({
       include: [
         '**/*.solid.tsx',
+        '**/solid/*.tsx',
         '**/*/*.solid.tsx',
         '**/node_modules/@suid/material/**',
       ],

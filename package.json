@@ -41,6 +41,7 @@
     "@destyler/splitter": "^0.2.0",
     "@destyler/vanilla": "^0.2.0",
     "@destyler/vue": "^0.2.0",
+    "@iconify-json/catppuccin": "^1.2.17",
     "@iconify-json/ph": "^1.2.2",
     "@rollup/plugin-replace": "^6.0.3",
     "@types/node": "^22.5.5",
