@@ -13,11 +13,17 @@ export default defineConfig({
         '**/*.vue',
         '**/*/*.vue',
       ],
+      exclude: [
+        '**/templates/**',
+      ],
     }),
     React({
       include: [
         '**/*.tsx',
         '**/*/*.tsx',
+      ],
+      exclude: [
+        '**/templates/**',
       ],
       experimentalReactChildren: true,
     }),
@@ -28,11 +34,17 @@ export default defineConfig({
         '**/*/*.solid.tsx',
         '**/node_modules/@suid/material/**',
       ],
+      exclude: [
+        '**/templates/**',
+      ],
     }),
     Svelte({
       include: [
         '**/*.svelte',
         '**/*/*.svelte',
+      ],
+      exclude: [
+        '**/templates/**',
       ],
     }),
     UnoCSS({

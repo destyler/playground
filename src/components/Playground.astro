@@ -11,6 +11,15 @@ import FrameworkSelect from './ui/FrameworkSelect.astro'
 import '../styles/tab.css'
 ---
 
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="fixed inset-0 z-9999 flex items-center justify-center bg-background transition-opacity duration-300">
+  <div class="flex flex-col items-center gap-4">
+    <div class="loading-spinner"></div>
+    <div class="text-primary text-lg font-medium">Loading Playground...</div>
+    <div class="text-muted-foreground text-sm">Initializing editor and modules</div>
+  </div>
+</div>
+
 <div class="flex flex-col h-100vh bg-background text-primary" id="playground">
   <!-- header -->
   <nav class="flex text-primary bg-background h-[--nav-height] box-border shadow-[0_0_4px_#00000054] relative z-999 justify-between px-[1em] py-0">
@@ -85,14 +94,35 @@ import '../styles/tab.css'
     }
   }
 
+  function hideLoading() {
+    const loadingOverlay = document.getElementById('loading-overlay')
+    if (loadingOverlay) {
+      loadingOverlay.style.opacity = '0'
+      setTimeout(() => {
+        loadingOverlay.style.display = 'none'
+      }, 300)
+    }
+  }
+
+  async function init() {
+    try {
+      await initPlayground()
+      // Wait for React to render
+      setTimeout(() => {
+        initSplitterContent()
+        hideLoading()
+      }, 100)
+    } catch (error) {
+      console.error('[Playground] Initialization failed:', error)
+      hideLoading()
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
-    initPlayground()
-    // Wait for React to render
-    setTimeout(initSplitterContent, 100)
+    init()
   })
 
   document.addEventListener('astro:page-load', () => {
-    initPlayground()
-    setTimeout(initSplitterContent, 100)
+    init()
   })
 </script>
