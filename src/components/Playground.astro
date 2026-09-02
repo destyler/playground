@@ -104,14 +104,35 @@ import '../styles/tab.css'
     }
   }
 
+  function waitForSplitter(): Promise<void> {
+    return new Promise((resolve) => {
+      const tryMove = () => {
+        const editorPanel = document.getElementById('editor-panel')
+        const previewPanel = document.getElementById('preview-panel')
+        if (editorPanel && previewPanel) {
+          initSplitterContent()
+          resolve()
+          return true
+        }
+        return false
+      }
+
+      if (tryMove())
+        return
+
+      window.addEventListener('splitter:ready', () => {
+        tryMove()
+      }, { once: true })
+    })
+  }
+
   async function init() {
     try {
+      // Reparent editor/iframe into visible panels BEFORE assigning iframe srcdoc
+      await waitForSplitter()
+      window.addEventListener('playground:shell-ready', hideLoading, { once: true })
       await initPlayground()
-      // Wait for React to render
-      setTimeout(() => {
-        initSplitterContent()
-        hideLoading()
-      }, 100)
+      hideLoading()
     } catch (error) {
       console.error('[Playground] Initialization failed:', error)
       hideLoading()

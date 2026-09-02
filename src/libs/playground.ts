@@ -35,7 +35,6 @@ const DEBOUNCE_DELAYS = {
   CLICK: 200,
   URL_RESTORE: 100,
   URL_RESTORE_COMPLETE: 200,
-  IFRAME_LOAD: 500,
 } as const
 
 /**
@@ -101,15 +100,13 @@ export async function initPlayground(): Promise<void> {
 
   updateIframe()
 
-  // Initialize editor
-  await initEditor()
+  // Shell (tabs + preview srcdoc) is ready — hide splash without waiting for Monaco/Volar
+  window.dispatchEvent(new CustomEvent('playground:shell-ready'))
 
-  // Handle special case for non-default framework from URL
-  if (urlState && urlState.framework !== DEFAULT_FRAMEWORK) {
-    await setupLanguageService(urlState.framework, true)
-    syncFilesToModels()
-    updateActiveModel()
-  }
+  // Editor + language service continue in the background
+  void initEditor().catch((error) => {
+    console.error('[Playground] Editor initialization failed:', error)
+  })
 }
 
 /**
@@ -698,6 +695,9 @@ async function updateIframe(): Promise<void> {
   else {
     // Full reload: regenerate HTML with UnoCSS included
     const importMap = getImportMap()
+    iframeRef.onload = () => {
+      isIframeLoaded = true
+    }
     iframeRef.srcdoc = generateHtml(
       state.activeFramework,
       state.files,
@@ -705,9 +705,6 @@ async function updateIframe(): Promise<void> {
       state.generatedUnoCSS,
       state.destylerVersion,
     )
-    setTimeout(() => {
-      isIframeLoaded = true
-    }, DEBOUNCE_DELAYS.IFRAME_LOAD)
   }
 }
 

@@ -54,6 +54,10 @@ export default function Splitter({ children }: SplitterProps) {
 
   const api = splitter.connect(state, send, normalizeProps)
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('splitter:ready'))
+  }, [])
+
   return (
     <div {...api.getRootProps()} className="flex flex-1 overflow-hidden">
       {/* Editor Panel */}
