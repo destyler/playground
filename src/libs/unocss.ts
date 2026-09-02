@@ -8,28 +8,12 @@
  */
 
 import type { GenerateResult, UnoGenerator, UserConfig } from '@unocss/core'
+import type { Framework } from '../templates'
 import { createGenerator } from '@unocss/core'
-// Extractors
+// Eager: used by the default Vue template
 import { extractorArbitraryVariants } from '@unocss/extractor-arbitrary-variants'
-import extractorPug from '@unocss/extractor-pug'
-import extractorSvelte from '@unocss/extractor-svelte'
-// Presets
-import presetAttributify from '@unocss/preset-attributify'
-// Use browser version of preset-icons for CDN support
 import presetIcons from '@unocss/preset-icons/browser'
-import presetMini from '@unocss/preset-mini'
-import presetRemToPx from '@unocss/preset-rem-to-px'
-import presetTagify from '@unocss/preset-tagify'
-import presetTypography from '@unocss/preset-typography'
-import presetUno from '@unocss/preset-uno'
-import presetWebFonts from '@unocss/preset-web-fonts'
-import presetWind from '@unocss/preset-wind'
 import presetWind3 from '@unocss/preset-wind3'
-import presetWind4 from '@unocss/preset-wind4'
-// Transformers (Note: transformerAttributifyJsx requires Babel and is not browser-compatible)
-import transformerCompileClass from '@unocss/transformer-compile-class'
-import transformerDirectives from '@unocss/transformer-directives'
-import transformerVariantGroup from '@unocss/transformer-variant-group'
 
 /**
  * Helper function that just returns the config (same as unocss's defineConfig)
@@ -74,6 +58,56 @@ export const AVAILABLE_EXTRACTORS = [
   'extractorSvelte',
   'extractorArbitraryVariants',
 ] as const
+
+/**
+ * Presets / transformers / extractors not needed for the default Vue config.
+ * Loaded only when the user's uno.config (or Svelte mode) names them.
+ */
+const LAZY_UNOCSS: Record<string, () => Promise<unknown>> = {
+  presetMini: () => import('@unocss/preset-mini').then(m => m.default),
+  presetWind4: () => import('@unocss/preset-wind4').then(m => m.default),
+  presetUno: () => import('@unocss/preset-uno').then(m => m.default),
+  presetWind: () => import('@unocss/preset-wind').then(m => m.default),
+  presetAttributify: () => import('@unocss/preset-attributify').then(m => m.default),
+  presetTagify: () => import('@unocss/preset-tagify').then(m => m.default),
+  presetWebFonts: () => import('@unocss/preset-web-fonts').then(m => m.default),
+  presetTypography: () => import('@unocss/preset-typography').then(m => m.default),
+  presetRemToPx: () => import('@unocss/preset-rem-to-px').then(m => m.default),
+  transformerVariantGroup: () => import('@unocss/transformer-variant-group').then(m => m.default),
+  transformerDirectives: () => import('@unocss/transformer-directives').then(m => m.default),
+  transformerCompileClass: () => import('@unocss/transformer-compile-class').then(m => m.default),
+  extractorPug: () => import('@unocss/extractor-pug').then(m => m.default),
+  extractorSvelte: () => import('@unocss/extractor-svelte').then(m => m.default),
+}
+
+const lazyUnoCache = new Map<string, unknown>()
+
+async function loadLazyUnoModule(name: string): Promise<unknown | undefined> {
+  const loader = LAZY_UNOCSS[name]
+  if (!loader)
+    return undefined
+  if (!lazyUnoCache.has(name))
+    lazyUnoCache.set(name, await loader())
+  return lazyUnoCache.get(name)
+}
+
+function referencedLazyUnoNames(configRaw: string): string[] {
+  return Object.keys(LAZY_UNOCSS).filter(name => new RegExp(`\\b${name}\\b`).test(configRaw))
+}
+
+function needsSvelteExtractor(framework?: Framework, files?: Array<{ name: string }>, configRaw?: string): boolean {
+  if (framework === 'svelte')
+    return true
+  if (files?.some(f => f.name.endsWith('.svelte')))
+    return true
+  if (configRaw && /\bextractorSvelte\b/.test(configRaw))
+    return true
+  return false
+}
+
+function needsPugExtractor(configRaw?: string): boolean {
+  return Boolean(configRaw && /\bextractorPug\b/.test(configRaw))
+}
 
 // ============================================================================
 // Types
@@ -147,13 +181,13 @@ function getDefaultConfig(): UserConfig {
  * @param configRaw - Raw configuration string
  * @returns Parsed configuration or error
  */
-export async function evaluateUnoConfig(configRaw: string): Promise<UnoConfigResult> {
+export async function evaluateUnoConfig(configRaw: string, extraLazyNames: string[] = []): Promise<UnoConfigResult> {
   if (!configRaw.trim()) {
     return { config: getDefaultConfig(), error: null }
   }
 
   try {
-    const config = await executeConfigCode(configRaw)
+    const config = await executeConfigCode(configRaw, extraLazyNames)
     return { config, error: null }
   }
   catch (e) {
@@ -181,7 +215,7 @@ export async function evaluateUnoConfig(configRaw: string): Promise<UnoConfigRes
  * @param configRaw - Raw configuration string
  * @returns Parsed UserConfig
  */
-async function executeConfigCode(configRaw: string): Promise<UserConfig> {
+async function executeConfigCode(configRaw: string, extraLazyNames: string[] = []): Promise<UserConfig> {
   // Transform the config code to be executable
   let code = configRaw
 
@@ -194,33 +228,26 @@ async function executeConfigCode(configRaw: string): Promise<UserConfig> {
   // or "export default {...}" to "return {...}"
   code = code.replace(/export\s+default\s+/, 'return ')
 
+  const lazyNames = new Set([...referencedLazyUnoNames(configRaw), ...extraLazyNames])
+  const lazyModules: Record<string, unknown> = {}
+  await Promise.all([...lazyNames].map(async (name) => {
+    const mod = await loadLazyUnoModule(name)
+    if (mod !== undefined)
+      lazyModules[name] = mod
+  }))
+
   // Create a sandbox with available presets and utilities
-  const sandbox = {
+  const sandbox: Record<string, unknown> = {
     // Core
     defineConfig,
 
-    // Presets
-    presetMini,
+    // Eager default-Vue presets / extractors
     presetWind3,
-    presetWind4,
-    presetUno,
-    presetWind,
-    presetAttributify,
-    presetTagify,
     presetIcons,
-    presetWebFonts,
-    presetTypography,
-    presetRemToPx,
-
-    // Transformers
-    transformerVariantGroup,
-    transformerDirectives,
-    transformerCompileClass,
-
-    // Extractors
-    extractorPug,
-    extractorSvelte,
     extractorArbitraryVariants,
+
+    // Lazy modules referenced by this config or the active framework
+    ...lazyModules,
 
     // Utilities
     console,
@@ -245,9 +272,10 @@ async function executeConfigCode(configRaw: string): Promise<UserConfig> {
       return getDefaultConfig()
     }
 
-    // Ensure presets array exists and has at least presetUno
+    // Ensure presets array exists and has at least a default preset
     if (!config.presets || !Array.isArray(config.presets) || config.presets.length === 0) {
-      config.presets = [presetUno()]
+      const presetUno = await loadLazyUnoModule('presetUno') as (() => unknown) | undefined
+      config.presets = [presetUno ? presetUno() : presetWind3()]
     }
 
     return config
@@ -268,11 +296,11 @@ async function executeConfigCode(configRaw: string): Promise<UserConfig> {
  * @param configRaw - Raw configuration string
  * @returns The UnoCSS generator instance
  */
-export async function createUnoGenerator(configRaw: string): Promise<{
+export async function createUnoGenerator(configRaw: string, extraLazyNames: string[] = []): Promise<{
   generator: UnoGenerator
   error: Error | null
 }> {
-  const { config, error } = await evaluateUnoConfig(configRaw)
+  const { config, error } = await evaluateUnoConfig(configRaw, extraLazyNames)
 
   if (error || !config) {
     // Use default config on error
@@ -312,11 +340,36 @@ export async function getUnoGenerator(): Promise<UnoGenerator> {
 export async function generateCSS(
   html: string,
   configRaw?: string,
+  options?: { framework?: Framework, files?: Array<{ name: string }> },
 ): Promise<UnoGenerateResult> {
   try {
-    // Update generator if config changed
-    if (configRaw !== undefined && configRaw !== currentConfigRaw) {
-      await createUnoGenerator(configRaw)
+    const extraLazyNames: string[] = []
+    const injectSvelte = needsSvelteExtractor(options?.framework, options?.files, configRaw)
+    const injectPug = needsPugExtractor(configRaw)
+    if (injectSvelte)
+      extraLazyNames.push('extractorSvelte')
+    if (injectPug)
+      extraLazyNames.push('extractorPug')
+
+    // Update generator if config changed (include extra extractors in the cache key)
+    const configKey = `${configRaw ?? ''}\0${extraLazyNames.join(',')}`
+    if (configRaw !== undefined && configKey !== currentConfigRaw) {
+      const { config, error } = await evaluateUnoConfig(configRaw, extraLazyNames)
+      const resolved = config ?? getDefaultConfig()
+      if (!error && config && injectSvelte) {
+        const extractorSvelte = await loadLazyUnoModule('extractorSvelte')
+        if (extractorSvelte) {
+          const extractors = [...(resolved.extractors ?? [])]
+          const already = Boolean(configRaw && /\bextractorSvelte\b/.test(configRaw))
+          if (!already) {
+            const extractor = typeof extractorSvelte === 'function' ? extractorSvelte() : extractorSvelte
+            extractors.push(extractor as any)
+          }
+          resolved.extractors = extractors
+        }
+      }
+      unoGenerator = await createGenerator(error || !config ? getDefaultConfig() : resolved)
+      currentConfigRaw = configKey
     }
 
     const generator = await getUnoGenerator()
@@ -351,10 +404,11 @@ export async function generateCSS(
 export async function generateCSSFromFiles(
   files: Array<{ name: string, content: string }>,
   configRaw?: string,
+  framework?: Framework,
 ): Promise<UnoGenerateResult> {
   // Combine all file contents for scanning
   const combinedContent = files.map(f => f.content).join('\n')
-  return generateCSS(combinedContent, configRaw)
+  return generateCSS(combinedContent, configRaw, { framework, files })
 }
 
 // ============================================================================

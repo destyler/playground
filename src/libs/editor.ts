@@ -4,7 +4,7 @@ import type { File, Framework } from '../templates'
 import * as volar from '@volar/monaco'
 import * as monaco from 'monaco-editor-core'
 import EditorWorker from 'monaco-editor-core/esm/vs/editor/editor.worker?worker'
-import { getFrameworkConfig, hasLanguageServiceSupport } from '../language/frameworks'
+import { getFrameworkConfig, hasLanguageServiceSupport, loadFrameworkConfig } from '../language/frameworks'
 import { FRAMEWORKS } from '../templates'
 import { registerHighlighter } from '../theme/highlighter'
 import { CONFIG_FILES, READ_ONLY_CONFIG_FILES, state } from './state'
@@ -217,7 +217,6 @@ function getLanguageForFile(fileName: string): string {
 
 // Setup Monaco environment
 if (typeof window !== 'undefined') {
-  registerHighlighter()
   ;(globalThis as any).MonacoEnvironment = {
     async getWorker(_: unknown, label: string): Promise<Worker> {
       const framework = label as Framework
@@ -265,6 +264,8 @@ export async function initEditor(): Promise<void> {
     return
   }
 
+  await registerHighlighter(state.activeFramework)
+
   editorInstance = monaco.editor.create(container, {
     model: null,
     theme: getMonacoTheme(),
@@ -282,7 +283,7 @@ export async function initEditor(): Promise<void> {
 
   isEditorInitialized = true
 
-  const frameworkConfig = getFrameworkConfig(state.activeFramework)
+  const frameworkConfig = await loadFrameworkConfig(state.activeFramework)
   if (frameworkConfig)
     registerLanguages(frameworkConfig)
 
@@ -392,7 +393,8 @@ let languageServiceToken = 0
  */
 export async function setupLanguageService(framework: Framework, clearModels = false): Promise<void> {
   const token = ++languageServiceToken
-  const config = getFrameworkConfig(framework)
+  await registerHighlighter(framework)
+  const config = await loadFrameworkConfig(framework)
 
   // Cleanup previous language service
   disposeVolar?.()

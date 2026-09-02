@@ -98,7 +98,7 @@ export async function initPlayground(): Promise<void> {
   // Generate initial UnoCSS
   await generateUnoCSS()
 
-  updateIframe()
+  await updateIframe()
 
   // Shell (tabs + preview srcdoc) is ready — hide splash without waiting for Monaco/Volar
   window.dispatchEvent(new CustomEvent('playground:shell-ready'))
@@ -258,7 +258,7 @@ async function handleFrameworkChange(framework: Framework): Promise<void> {
   updateConfigButtonStates()
 
   isIframeLoaded = false
-  updateIframe()
+  await updateIframe()
   scheduleUrlUpdate()
 }
 
@@ -638,6 +638,7 @@ async function generateUnoCSS(): Promise<void> {
     const result = await generateCSSFromFiles(
       state.files,
       state.unoConfigContent,
+      state.activeFramework,
     )
 
     state.generatedUnoCSS = result.css
@@ -698,7 +699,7 @@ async function updateIframe(): Promise<void> {
     iframeRef.onload = () => {
       isIframeLoaded = true
     }
-    iframeRef.srcdoc = generateHtml(
+    iframeRef.srcdoc = await generateHtml(
       state.activeFramework,
       state.files,
       importMap,
@@ -713,5 +714,5 @@ async function updateIframe(): Promise<void> {
  */
 export function refreshPreview(): void {
   isIframeLoaded = false
-  updateIframe()
+  void updateIframe()
 }
