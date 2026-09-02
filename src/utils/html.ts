@@ -1,6 +1,6 @@
 import type { File, Framework } from '../templates'
 import type { ImportMap, UserImportMap } from '../templates/types'
-import { getAllDestylerImports } from '../libs/destyler-deps'
+import { getUsedDestylerImports } from '../libs/destyler-deps'
 import { generateReactScript } from '../preview/react'
 import { generateSolidScript } from '../preview/solid'
 import { generateSvelteScript } from '../preview/svelte'
@@ -61,7 +61,7 @@ const FRAMEWORK_CDNS: Readonly<Record<Framework, readonly string[]>> = {
  * Script generators for each framework
  * Vue needs the import map for external module resolution
  */
-type ScriptGenerator = (serializedFiles: string, serializedImportMap?: string) => string
+type ScriptGenerator = (serializedFiles: string, serializedImportMap?: string, destylerVersion?: string) => string
 
 const SCRIPT_GENERATORS: Readonly<Record<Framework, ScriptGenerator>> = {
   vue: generateVueScript,
@@ -243,8 +243,8 @@ export function generateHtml(
   destylerVersion: string = 'latest',
 ): string {
   const coreImports = CORE_IMPORTS[framework]
-  // Get all destyler imports based on framework and version
-  const destylerImports = getAllDestylerImports(destylerVersion, framework)
+  // Only destyler packages actually imported by playground files
+  const destylerImports = getUsedDestylerImports(files, destylerVersion, framework)
   // Merge core, destyler, and user imports
   const mergedCoreImports = { ...coreImports, ...destylerImports }
   const finalImportMap = mergeImportMaps(mergedCoreImports, userImportMap)
@@ -253,7 +253,7 @@ export function generateHtml(
   const serializedFiles = serializeFilesToMap(files)
   const serializedImportMap = JSON.stringify(finalImportMap).replace(/<\//g, '\\x3C/')
   const errorHandling = createErrorHandlingScript()
-  const scriptContent = SCRIPT_GENERATORS[framework](serializedFiles, serializedImportMap)
+  const scriptContent = SCRIPT_GENERATORS[framework](serializedFiles, serializedImportMap, destylerVersion)
 
   // UnoCSS styles
   const unoStyles = createUnoStyleTag(unoCSS || '')

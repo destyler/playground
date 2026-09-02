@@ -7,14 +7,17 @@
  * @module preview/solid
  */
 
+import { generateRuntimeHelpers } from './runtime-helpers'
+
 /**
  * Generates the Solid.js preview runtime script
  *
  * @param serializedFiles - JSON serialized file contents
  * @param serializedImportMap - Optional import map for external modules
+ * @param destylerVersion - Selected destyler version (pins esm.sh URLs when not latest)
  * @returns HTML script tags for Solid.js runtime
  */
-export function generateSolidScript(serializedFiles: string, serializedImportMap?: string) {
+export function generateSolidScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest') {
   const importMapData = serializedImportMap || '{}'
 
   return `
@@ -38,56 +41,53 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
     <script>
       const importMapData = ${importMapData};
       const externalModules = importMapData.imports || {};
+      ${generateRuntimeHelpers(destylerVersion)}
 
-      // Pre-loaded external modules cache
       window.__EXTERNAL_MODULES__ = {};
 
-      // Pre-load external modules
-      async function preloadExternalModules() {
-        for (const [moduleName, moduleUrl] of Object.entries(externalModules)) {
-          // Skip core Solid modules
-          if (moduleName === 'solid-js' || moduleName.startsWith('solid-js/')) continue;
-
-          try {
-            console.log('[Solid Playground] Pre-loading:', moduleName, 'from', moduleUrl);
-            const module = await import(moduleUrl);
-            console.log('[Solid Playground] Raw module:', moduleName, module);
-
-            // Handle different module export formats
-            let normalizedModule;
-
-            if (typeof module.default === 'function') {
-              // Module has a function as default export (like dayjs)
-              normalizedModule = function(...args) {
-                return module.default(...args);
-              };
-              Object.keys(module).forEach(key => {
-                normalizedModule[key] = module[key];
-              });
-              normalizedModule.default = module.default;
-            } else if (module.default !== undefined) {
-              normalizedModule = { ...module };
-            } else {
-              normalizedModule = { ...module, default: module };
-            }
-
-            window.__EXTERNAL_MODULES__[moduleName] = normalizedModule;
-            console.log('[Solid Playground] Normalized module:', moduleName, 'default:', typeof normalizedModule.default);
-          } catch (e) {
-            console.error('[Solid Playground] Failed to load:', moduleName, e);
-          }
+      function normalizeSolidModule(module) {
+        let normalizedModule;
+        if (typeof module.default === 'function') {
+          normalizedModule = function(...args) {
+            return module.default(...args);
+          };
+          Object.keys(module).forEach(key => {
+            normalizedModule[key] = module[key];
+          });
+          normalizedModule.default = module.default;
+        } else if (module.default !== undefined) {
+          normalizedModule = { ...module };
+        } else {
+          normalizedModule = { ...module, default: module };
         }
+        return normalizedModule;
+      }
+
+      async function loadExternalModule(moduleName) {
+        if (window.__EXTERNAL_MODULES__[moduleName]) {
+          return window.__EXTERNAL_MODULES__[moduleName];
+        }
+        const moduleUrl = resolveExternalUrl(moduleName);
+        if (!moduleUrl) return null;
+        const module = await import(moduleUrl);
+        const normalized = normalizeSolidModule(module);
+        window.__EXTERNAL_MODULES__[moduleName] = normalized;
+        return normalized;
+      }
+
+      async function preloadExternalModules(fileMap) {
+        const names = collectPreloadNames(fileMap);
+        await runPool(names, PRELOAD_CONCURRENCY, loadExternalModule);
       }
 
       window.startApp = async function() {
         if (!window.SolidJS || !window.Babel || !window.babelPresetSolid) return;
 
-        // Pre-load external modules first
-        await preloadExternalModules();
-
         let dispose = null;
         window.__FILES__ = ${serializedFiles};
         window.__COMPILED_FILES__ = {};
+
+        await preloadExternalModules(window.__FILES__);
 
         const modules = {
           'solid-js': window.SolidJS,
@@ -121,10 +121,12 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
         }
 
         async function update(files) {
-          // Clear any previous errors
           if (window.__clearError__) window.__clearError__();
 
           if (files) window.__FILES__ = files;
+
+          await preloadExternalModules(window.__FILES__);
+          Object.assign(modules, window.__EXTERNAL_MODULES__);
 
           if (dispose) {
             dispose();
@@ -133,7 +135,6 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
           document.getElementById('app').innerHTML = '';
           window.__COMPILED_FILES__ = {};
 
-          // Compile all files with babel-preset-solid
           for (const [name, content] of Object.entries(window.__FILES__)) {
              try {
                const result = window.Babel.transform(content, {
@@ -154,9 +155,7 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
              }
           }
 
-          // Mount
           try {
-            // Patch render to capture dispose
             const originalRender = window.SolidWeb.render;
             window.SolidWeb.render = (code, element) => {
                dispose = originalRender(code, element);
@@ -182,7 +181,6 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
         });
       };
 
-        // Try to start if everything is loaded
       if (window.SolidJS && window.Babel && window.babelPresetSolid) {
         window.startApp();
       }

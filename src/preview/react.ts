@@ -7,14 +7,17 @@
  * @module preview/react
  */
 
+import { generateRuntimeHelpers } from './runtime-helpers'
+
 /**
  * Generates the React preview runtime script
  *
  * @param serializedFiles - JSON serialized file contents
  * @param serializedImportMap - Optional import map for external modules
+ * @param destylerVersion - Selected destyler version (pins esm.sh URLs when not latest)
  * @returns HTML script tags for React runtime
  */
-export function generateReactScript(serializedFiles: string, serializedImportMap?: string) {
+export function generateReactScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest') {
   const importMapData = serializedImportMap || '{}'
 
   return `
@@ -35,65 +38,53 @@ export function generateReactScript(serializedFiles: string, serializedImportMap
 
       const importMapData = ${importMapData};
       const externalModules = importMapData.imports || {};
+      ${generateRuntimeHelpers(destylerVersion)}
 
-      // Pre-loaded external modules cache
       window.__EXTERNAL_MODULES__ = {};
 
-      // Pre-load external modules
-      async function preloadExternalModules() {
-        for (const [moduleName, moduleUrl] of Object.entries(externalModules)) {
-          // Skip core React modules
-          if (moduleName === 'react' || moduleName.startsWith('react-dom')) continue;
-
-          try {
-            console.log('[React Playground] Pre-loading:', moduleName, 'from', moduleUrl);
-            const module = await import(moduleUrl);
-            console.log('[React Playground] Raw module:', moduleName, module);
-
-            // Handle different module export formats
-            // Babel compiles "import X from 'pkg'" to "require('pkg').default"
-            // So we need to ensure .default is properly set
-
-            let normalizedModule;
-
-            if (typeof module.default === 'function') {
-              // Module has a function as default export (like dayjs)
-              // Create a callable wrapper that also has all properties
-              normalizedModule = function(...args) {
-                return module.default(...args);
-              };
-              // Copy all properties
-              Object.keys(module).forEach(key => {
-                normalizedModule[key] = module[key];
-              });
-              // Ensure default points to the function
-              normalizedModule.default = module.default;
-            } else if (module.default !== undefined) {
-              // Module has a non-function default export
-              normalizedModule = { ...module };
-            } else {
-              // Module only has named exports, no default
-              // Create a module object with default pointing to the whole module
-              normalizedModule = { ...module, default: module };
-            }
-
-            window.__EXTERNAL_MODULES__[moduleName] = normalizedModule;
-            console.log('[React Playground] Normalized module:', moduleName, 'default:', typeof normalizedModule.default);
-          } catch (e) {
-            console.error('[React Playground] Failed to load:', moduleName, e);
-          }
+      function normalizeReactModule(module) {
+        let normalizedModule;
+        if (typeof module.default === 'function') {
+          normalizedModule = function(...args) {
+            return module.default(...args);
+          };
+          Object.keys(module).forEach(key => {
+            normalizedModule[key] = module[key];
+          });
+          normalizedModule.default = module.default;
+        } else if (module.default !== undefined) {
+          normalizedModule = { ...module };
+        } else {
+          normalizedModule = { ...module, default: module };
         }
+        return normalizedModule;
+      }
+
+      async function loadExternalModule(moduleName) {
+        if (window.__EXTERNAL_MODULES__[moduleName]) {
+          return window.__EXTERNAL_MODULES__[moduleName];
+        }
+        const moduleUrl = resolveExternalUrl(moduleName);
+        if (!moduleUrl) return null;
+        const module = await import(moduleUrl);
+        const normalized = normalizeReactModule(module);
+        window.__EXTERNAL_MODULES__[moduleName] = normalized;
+        return normalized;
+      }
+
+      async function preloadExternalModules(fileMap) {
+        const names = collectPreloadNames(fileMap);
+        await runPool(names, PRELOAD_CONCURRENCY, loadExternalModule);
       }
 
       window.startReactApp = async function() {
         if (!window.React || !window.Babel) return;
 
-        // Pre-load external modules first
-        await preloadExternalModules();
-
         let root = null;
         window.__FILES__ = ${serializedFiles};
         window.__COMPILED_FILES__ = {};
+
+        await preloadExternalModules(window.__FILES__);
 
         const modules = {
           'react': window.React,
@@ -103,10 +94,8 @@ export function generateReactScript(serializedFiles: string, serializedImportMap
         };
 
         function require(id) {
-          // Check built-in and external modules
           if (modules[id]) return modules[id];
 
-          // Handle local file imports
           if (id.startsWith('./')) {
              const name = id.replace('./', '').replace(/\\.(tsx|ts|jsx|js)$/, '');
              const filename = Object.keys(window.__FILES__).find(k => k.replace(/\\.(tsx|ts|jsx|js)$/, '') === name);
@@ -133,6 +122,9 @@ export function generateReactScript(serializedFiles: string, serializedImportMap
         async function update(files) {
           if (window.__clearError__) window.__clearError__();
           if (files) window.__FILES__ = files;
+
+          await preloadExternalModules(window.__FILES__);
+          Object.assign(modules, window.__EXTERNAL_MODULES__);
 
           if (root) {
             root.unmount();

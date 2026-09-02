@@ -121,11 +121,60 @@ export type DestylerSharedPackage = typeof DESTYLER_SHARED_PACKAGES[number]
 // ============================================================================
 
 /**
- * Generates a CDN URL for a destyler package
+ * Generates a CDN URL for a destyler package.
+ * Pins a concrete version (`@x.y.z`) when selected; leaves `latest` unpinned.
  */
-function getPackageCdnUrl(packageName: string, version: string): string {
-  const versionTag = version === 'latest' ? '' : `@${version}`
+export function getPackageCdnUrl(packageName: string, version: string): string {
+  const versionTag = !version || version === 'latest' ? '' : `@${version}`
   return `${CDN_BASE_URL}/${packageName}${versionTag}`
+}
+
+const STATIC_IMPORT_RE = /(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?from\s+)?['"]([^'"]+)['"]/g
+const DYNAMIC_IMPORT_RE = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+
+/**
+ * Collects bare module specifiers from `from '...'` / `import('...')` / side-effect imports.
+ */
+export function collectImportSpecifiers(sources: Iterable<string>): string[] {
+  const specifiers = new Set<string>()
+
+  for (const source of sources) {
+    STATIC_IMPORT_RE.lastIndex = 0
+    DYNAMIC_IMPORT_RE.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = STATIC_IMPORT_RE.exec(source)))
+      specifiers.add(match[1])
+    while ((match = DYNAMIC_IMPORT_RE.exec(source)))
+      specifiers.add(match[1])
+  }
+
+  return [...specifiers]
+}
+
+export function isDestylerSpecifier(specifier: string): boolean {
+  return specifier === '@destyler' || specifier.startsWith('@destyler/')
+}
+
+/**
+ * Import map entries for destyler packages actually referenced by playground files.
+ * Unused components/shared packages are omitted and lazy-loaded on demand.
+ */
+export function getUsedDestylerImports(
+  files: { content: string }[],
+  version: string,
+  framework: Framework,
+): Record<string, string> {
+  const imports: Record<string, string> = {
+    ...getDestylerAdapterImport(version, framework),
+  }
+
+  for (const specifier of collectImportSpecifiers(files.map(file => file.content))) {
+    if (!isDestylerSpecifier(specifier))
+      continue
+    imports[specifier] = getPackageCdnUrl(specifier, version)
+  }
+
+  return imports
 }
 
 /**
