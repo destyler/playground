@@ -5,10 +5,6 @@ import * as volar from '@volar/monaco'
 import * as monaco from 'monaco-editor-core'
 import EditorWorker from 'monaco-editor-core/esm/vs/editor/editor.worker?worker'
 import { getFrameworkConfig, hasLanguageServiceSupport } from '../language/frameworks'
-import ReactWorker from '../language/workers/react.worker?worker'
-import SolidWorker from '../language/workers/solid.worker?worker'
-import SvelteWorker from '../language/workers/svelte.worker?worker'
-import VueWorker from '../language/workers/vue.worker?worker'
 import { FRAMEWORKS } from '../templates'
 import { registerHighlighter } from '../theme/highlighter'
 import { CONFIG_FILES, READ_ONLY_CONFIG_FILES, state } from './state'
@@ -25,14 +21,18 @@ type ConfigChangeCallback = (configFile: string, content: string) => void
 // Constants
 // ============================================================================
 
+const TS_CDN_VERSION = '5.6.2'
+
+type WorkerConstructor = new () => Worker
+
 /**
- * Worker constructors for each framework
+ * Lazy worker loaders — only the active framework worker is fetched.
  */
-const WORKER_CONSTRUCTORS: Record<Framework, new () => Worker> = {
-  vue: VueWorker,
-  react: ReactWorker,
-  solid: SolidWorker,
-  svelte: SvelteWorker,
+const WORKER_LOADERS: Record<Framework, () => Promise<WorkerConstructor>> = {
+  vue: () => import('../language/workers/vue.worker?worker').then(m => m.default),
+  react: () => import('../language/workers/react.worker?worker').then(m => m.default),
+  solid: () => import('../language/workers/solid.worker?worker').then(m => m.default),
+  svelte: () => import('../language/workers/svelte.worker?worker').then(m => m.default),
 }
 
 /**
@@ -150,8 +150,11 @@ const workerHost = new MonacoWorkerHost()
 /**
  * Gets worker constructor for a framework
  */
-function getWorkerConstructor(framework: Framework): (new () => Worker) | null {
-  return WORKER_CONSTRUCTORS[framework] ?? null
+async function getWorkerConstructor(framework: Framework): Promise<WorkerConstructor | null> {
+  const load = WORKER_LOADERS[framework]
+  if (!load)
+    return null
+  return load()
 }
 
 /**
@@ -167,7 +170,7 @@ async function initializeWorker(WorkerClass: new () => Worker): Promise<Worker> 
     })
     worker.postMessage({
       event: 'init',
-      tsVersion: 'latest',
+      tsVersion: TS_CDN_VERSION,
       tsLocale: undefined,
     } satisfies WorkerMessage)
   })
@@ -218,7 +221,7 @@ if (typeof window !== 'undefined') {
   ;(globalThis as any).MonacoEnvironment = {
     async getWorker(_: unknown, label: string): Promise<Worker> {
       const framework = label as Framework
-      const WorkerClass = getWorkerConstructor(framework)
+      const WorkerClass = await getWorkerConstructor(framework)
       if (WorkerClass) {
         return await initializeWorker(WorkerClass)
       }
@@ -279,13 +282,38 @@ export async function initEditor(): Promise<void> {
 
   isEditorInitialized = true
 
-  await setupLanguageService(state.activeFramework)
+  const frameworkConfig = getFrameworkConfig(state.activeFramework)
+  if (frameworkConfig)
+    registerLanguages(frameworkConfig)
+
   syncFilesToModels()
   updateActiveModel()
 
   // Initialize UnoCSS integration (hover, autocomplete, decorations)
   injectUnocssStyles()
   initUnocssIntegration(editorInstance)
+
+  scheduleLanguageServiceSetup(state.activeFramework)
+}
+
+function scheduleLanguageServiceSetup(framework: Framework): void {
+  const run = () => {
+    void setupLanguageService(framework)
+      .then(() => {
+        syncFilesToModels()
+        updateActiveModel()
+      })
+      .catch((error) => {
+        console.error('[Editor] Deferred language service setup failed:', error)
+      })
+  }
+
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(run, { timeout: 2000 })
+  }
+  else {
+    setTimeout(run, 0)
+  }
 }
 
 /**
@@ -357,10 +385,13 @@ function handleUserFileChange(rawFileName: string, newValue: string): void {
 // Language Service
 // ============================================================================
 
+let languageServiceToken = 0
+
 /**
  * Sets up language service for a framework
  */
 export async function setupLanguageService(framework: Framework, clearModels = false): Promise<void> {
+  const token = ++languageServiceToken
   const config = getFrameworkConfig(framework)
 
   // Cleanup previous language service
@@ -385,6 +416,16 @@ export async function setupLanguageService(framework: Framework, clearModels = f
   volarWorker = worker
 
   await setupVolarProviders(config, worker)
+  if (token !== languageServiceToken) {
+    disposeVolar?.()
+    disposeVolar = undefined
+    editorOpenerDispose?.dispose()
+    editorOpenerDispose = undefined
+    worker.dispose()
+    if (volarWorker === worker)
+      volarWorker = null
+    return
+  }
   setupEditorOpener(config)
 }
 
