@@ -106,12 +106,20 @@ import '../styles/tab.css'
 
   function waitForSplitter(): Promise<void> {
     return new Promise((resolve) => {
+      let settled = false
+      const finish = () => {
+        if (settled)
+          return
+        settled = true
+        resolve()
+      }
+
       const tryMove = () => {
         const editorPanel = document.getElementById('editor-panel')
         const previewPanel = document.getElementById('preview-panel')
         if (editorPanel && previewPanel) {
           initSplitterContent()
-          resolve()
+          finish()
           return true
         }
         return false
@@ -123,6 +131,15 @@ import '../styles/tab.css'
       window.addEventListener('splitter:ready', () => {
         tryMove()
       }, { once: true })
+
+      // splitter:ready may have fired between the first tryMove and the listener
+      if (tryMove())
+        return
+
+      setTimeout(() => {
+        tryMove()
+        finish()
+      }, 2000)
     })
   }
 
