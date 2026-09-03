@@ -55,9 +55,9 @@ async function createPreview(prNumber) {
   const environmentId = requireEnvironment('ZEABUR_ENVIRONMENT_ID')
   ensureArchive()
 
-  const serviceName = `pr-${prNumber}`
+  const runSuffix = `${process.env.GITHUB_RUN_ID || Date.now()}-${process.env.GITHUB_RUN_ATTEMPT || 1}`
+  const serviceName = `pr-${prNumber}-${runSuffix}`
   const domainPrefix = normalizeDomainPrefix(process.env.ZEABUR_PREVIEW_DOMAIN_PREFIX || 'destyler-playground-pr')
-  const requestedDomain = `${domainPrefix}-${prNumber}`
   let serviceId
 
   try {
@@ -79,6 +79,8 @@ async function createPreview(prNumber) {
     if (!serviceId) {
       throw new Error('Zeabur did not return a service id')
     }
+
+    const requestedDomain = `${domainPrefix}-${prNumber}-${serviceId.slice(-8)}`
 
     console.log(`Deploying archive to service ${serviceId} ...`)
     await deployArchive(token, environmentId, serviceId)
@@ -102,6 +104,7 @@ async function createPreview(prNumber) {
     }
 
     const deployUrl = `https://${domain}`
+    await waitForPreview(deployUrl)
     writeOutputs({ service_id: serviceId, domain, preview_url: deployUrl, deploy_url: deployUrl })
     console.log(`Preview created: ${deployUrl}`)
   }
@@ -130,6 +133,7 @@ async function updatePreview(serviceId) {
 
   console.log(`Updating preview service ${serviceId} ...`)
   const deploymentUrl = await deployArchive(token, environmentId, serviceId)
+  await waitForPreview(previewUrl)
   writeOutputs({ service_id: serviceId, preview_url: previewUrl, deployment_url: deploymentUrl })
   console.log(`Preview update started for service ${serviceId}.`)
 }
@@ -229,6 +233,44 @@ async function uploadArchive(url, presignedHeaders, size) {
   }
 }
 
+async function waitForPreview(previewUrl) {
+  const timeout = previewTimeout()
+  const startedAt = Date.now()
+  let lastResult = 'no response'
+
+  console.log(`Waiting for ${previewUrl} to become available ...`)
+
+  while (Date.now() - startedAt < timeout) {
+    const url = new URL(previewUrl)
+    url.searchParams.set('__destyler_preview_check', Date.now().toString())
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'User-Agent': 'destyler-pr-preview',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15_000),
+      })
+      lastResult = `HTTP ${response.status}`
+      await response.body?.cancel()
+
+      if (response.ok) {
+        console.log(`Preview is available (${lastResult}).`)
+        return
+      }
+    }
+    catch (error) {
+      lastResult = formatError(error)
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 5_000))
+  }
+
+  throw new Error(`Preview did not become available within ${timeout} ms (last result: ${lastResult})`)
+}
+
 async function removeService(token, serviceId) {
   const result = await executeGraphQL(token, `
     mutation DeleteService($id: ObjectID!) {
@@ -311,10 +353,19 @@ function normalizeDomainPrefix(value) {
     .replace(/[^a-z0-9-]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-  if (!normalized || normalized.length > 48) {
-    throw new Error('ZEABUR_PREVIEW_DOMAIN_PREFIX must contain 1-48 URL-safe characters')
+  if (!normalized || normalized.length > 40) {
+    throw new Error('ZEABUR_PREVIEW_DOMAIN_PREFIX must contain 1-40 URL-safe characters')
   }
   return normalized
+}
+
+function previewTimeout() {
+  const rawValue = process.env.ZEABUR_PREVIEW_TIMEOUT_MS || '180000'
+  const timeout = Number(rawValue)
+  if (!Number.isInteger(timeout) || timeout < 10_000 || timeout > 600_000) {
+    throw new Error('ZEABUR_PREVIEW_TIMEOUT_MS must be an integer between 10000 and 600000')
+  }
+  return timeout
 }
 
 function previewUrlFromDomain(domain) {
@@ -354,5 +405,6 @@ Required environment variables:
 Optional environment variables:
   ZEABUR_API_BASE               default: https://api.zeabur.com
   ZEABUR_ARCHIVE_PATH           default: playground-dist.zip
-  ZEABUR_PREVIEW_DOMAIN_PREFIX  default: destyler-playground-pr`)
+  ZEABUR_PREVIEW_DOMAIN_PREFIX  default: destyler-playground-pr
+  ZEABUR_PREVIEW_TIMEOUT_MS     default: 180000`)
 }
