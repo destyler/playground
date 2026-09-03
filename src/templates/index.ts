@@ -1,4 +1,5 @@
-import type { File, Framework, FrameworkTemplate, UserImportMap } from './types'
+import type { File, Framework, FrameworkTemplate, PlaygroundLayer, UserImportMap } from './types'
+import { DESTYLER_UI_APP_FILES } from './destyler-ui'
 
 import reactImportMap from './react/import-map.json'
 import reactTsconfig from './react/tsconfig.json'
@@ -97,4 +98,29 @@ export const FRAMEWORKS: Record<Framework, FrameworkTemplate> = {
 }
 
 // Re-export types for convenience
-export type { File, Framework, FrameworkTemplate, UserImportMap }
+export type { File, Framework, FrameworkTemplate, PlaygroundLayer, UserImportMap }
+
+function cloneFiles(files: File[]): File[] {
+  return files.map(file => ({
+    name: file.name,
+    content: file.content,
+    active: file.active,
+  }))
+}
+
+/**
+ * Playground editor files for a framework + Destyler / Destyler UI layer.
+ * Destyler UI reuses companion files (Comp.vue / Counter) from the headless templates.
+ */
+export function getPlaygroundFiles(framework: Framework, layer: PlaygroundLayer = 'destyler'): File[] {
+  const templateFiles = FRAMEWORKS[framework].defaultFiles
+  if (layer !== 'destyler-ui')
+    return cloneFiles(templateFiles)
+
+  const app = DESTYLER_UI_APP_FILES[framework]
+  const companions = templateFiles.filter(file => !file.name.startsWith('App.'))
+  return cloneFiles([
+    { ...app, active: true },
+    ...companions.map(file => ({ ...file, active: false })),
+  ])
+}

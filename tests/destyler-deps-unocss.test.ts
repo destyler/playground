@@ -4,6 +4,8 @@ import test from 'node:test'
 import {
   collectImportSpecifiers,
   getUsedDestylerImports,
+  isDestylerSpecifier,
+  isDestylerUiSpecifier,
 } from '../src/libs/destyler-deps.ts'
 import { generateCSSFromFiles } from '../src/libs/unocss.ts'
 
@@ -95,4 +97,25 @@ test('runs file-aware extractors with each source filename', async () => {
   assert.equal(result.matched.includes('bg-red-500'), true)
   assert.equal(result.matched.includes('text-blue-500'), true)
   assert.match(result.css, /\.bg-red-500/)
+})
+
+test('treats @destyler-ui specifiers as destyler CDN packages', () => {
+  assert.equal(isDestylerSpecifier('@destyler-ui/vue'), true)
+  assert.equal(isDestylerUiSpecifier('@destyler-ui/react'), true)
+  assert.equal(isDestylerSpecifier('@vue/runtime-dom'), false)
+})
+
+test('pins destyler-ui imports to latest even when destyler is versioned', () => {
+  const imports = getUsedDestylerImports([
+    {
+      content: `
+        import { Checkbox } from '@destyler-ui/vue'
+        import * as checkbox from '@destyler/checkbox'
+      `,
+    },
+  ], '0.2.0', 'vue')
+
+  assert.equal(imports['@destyler/vue'], 'https://esm.sh/@destyler/vue@0.2.0')
+  assert.equal(imports['@destyler/checkbox'], 'https://esm.sh/@destyler/checkbox@0.2.0')
+  assert.equal(imports['@destyler-ui/vue'], 'https://esm.sh/@destyler-ui/vue')
 })

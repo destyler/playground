@@ -23,8 +23,14 @@ export function generateRuntimeHelpers(
       const BUILTIN_MODULES = new Set(${JSON.stringify(builtinModules)});
       let previewUpdateGeneration = 0;
 
+      function isDestylerUiSpecifier(name) {
+        return name === '@destyler-ui' || name.startsWith('@destyler-ui/');
+      }
+
       function destylerCdnUrl(name) {
-        const tag = !DESTYLER_VERSION || DESTYLER_VERSION === 'latest' ? '' : '@' + DESTYLER_VERSION;
+        const tag = isDestylerUiSpecifier(name) || !DESTYLER_VERSION || DESTYLER_VERSION === 'latest'
+          ? ''
+          : '@' + DESTYLER_VERSION;
         return DESTYLER_CDN + '/' + name + tag;
       }
 
@@ -339,7 +345,7 @@ export function generateRuntimeHelpers(
 
       function resolveExternalUrl(moduleName) {
         if (externalModules[moduleName]) return externalModules[moduleName];
-        if (moduleName === '@destyler' || moduleName.startsWith('@destyler/')) {
+        if (moduleName === '@destyler' || moduleName.startsWith('@destyler/') || isDestylerUiSpecifier(moduleName)) {
           return destylerCdnUrl(moduleName);
         }
         return null;

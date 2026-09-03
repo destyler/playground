@@ -34,6 +34,11 @@ const vueDependencies: Record<string, string> = {
   'vue': 'latest',
   '@destyler/vue': 'latest',
   '@destyler/checkbox': 'latest',
+  '@destyler-ui/vue': 'latest',
+  '@destyler-ui/react': 'latest',
+  '@destyler-ui/solid': 'latest',
+  '@destyler-ui/svelte': 'latest',
+
   '@vue/compiler-core': 'latest',
   '@vue/compiler-dom': 'latest',
   '@vue/compiler-sfc': 'latest',

@@ -8,6 +8,7 @@ import Splitter from './ui/Splitter.tsx'
 import ThemeToggle from './ui/Toggle.vue'
 import VersionSelect from './ui/VersionSelect.astro'
 import FrameworkSelect from './ui/FrameworkSelect.astro'
+import LayerSelect from './ui/LayerSelect.astro'
 import '../styles/tab.css'
 ---
 
@@ -33,6 +34,7 @@ import '../styles/tab.css'
     <!-- links -->
     <div class="flex">
       <VersionSelect />
+      <LayerSelect />
       <FrameworkSelect />
       <ThemeToggle client:only="vue" />
       <Sharable />

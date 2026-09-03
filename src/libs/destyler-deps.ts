@@ -390,8 +390,14 @@ export function collectImportSpecifiers(sources: Iterable<string>): string[] {
   return [...specifiers]
 }
 
+export function isDestylerUiSpecifier(specifier: string): boolean {
+  return specifier === '@destyler-ui' || specifier.startsWith('@destyler-ui/')
+}
+
 export function isDestylerSpecifier(specifier: string): boolean {
-  return specifier === '@destyler' || specifier.startsWith('@destyler/')
+  return specifier === '@destyler'
+    || specifier.startsWith('@destyler/')
+    || isDestylerUiSpecifier(specifier)
 }
 
 /**
@@ -410,7 +416,9 @@ export function getUsedDestylerImports(
   for (const specifier of collectImportSpecifiers(files.map(file => file.content))) {
     if (!isDestylerSpecifier(specifier))
       continue
-    imports[specifier] = getPackageCdnUrl(specifier, version)
+    // Destyler UI versions do not share destyler headless pins.
+    const packageVersion = isDestylerUiSpecifier(specifier) ? 'latest' : version
+    imports[specifier] = getPackageCdnUrl(specifier, packageVersion)
   }
 
   return imports
