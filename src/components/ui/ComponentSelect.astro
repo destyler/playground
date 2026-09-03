@@ -1,0 +1,265 @@
+---
+/**
+ * Component Select
+ *
+ * Dropdown for choosing the destyler primitive shown in the playground.
+ *
+ * Events:
+ * - Dispatches 'component:change' when the user picks a component
+ * - Listens for 'url:component-restored' / 'playground:state-ready'
+ */
+import { DEFAULT_COMPONENT, DESTYLER_COMPONENTS, getComponentLabel } from '../../libs/destyler-deps'
+
+const initialLabel = getComponentLabel(DEFAULT_COMPONENT)
+---
+
+<div class="mr-3 relative flex justify-center items-center" id="component-select-container">
+  <span
+    class="cursor-pointer relative inline-flex place-items-center text-sm text-primary after:content-empty after:w-0 after:h-0 after:border-l-4 after:border-l-transparent after:border-r-4 after:border-r-transparent after:border-t-6 after:border-t-muted-foreground after:ml-2"
+    id="component-trigger"
+  >
+    <span class="text-accent-foreground font-medium" id="component-label">{initialLabel}</span>
+  </span>
+
+  <ul
+    class="hidden absolute left-0 top-[--nav-height] bg-popover border border-solid border-border rounded list-none p-2 mt-1 m-0 w-48 max-h-[70vh] overflow-y-auto z-99999"
+    id="component-dropdown"
+  >
+    {DESTYLER_COMPONENTS.map((component) => (
+      <li class="flex justify-between items-center" data-component={component}>
+        <a class="block px-3 py-1.5 no-underline cursor-pointer text-popover-foreground/80 text-sm rounded hover:text-popover-foreground">
+          {getComponentLabel(component)}
+        </a>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<script is:inline>
+(function() {
+  try {
+    var hash = window.location.hash;
+    if (!hash || hash === '#') return;
+
+    var serializedState = hash.startsWith('#') ? hash.slice(1) : hash;
+    var binary = atob(serializedState);
+
+    var parsed;
+    if (binary.charCodeAt(0) === 0x78 && window.pako) {
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      var decompressed = window.pako.inflate(bytes, { to: 'string' });
+      parsed = JSON.parse(decompressed);
+    } else {
+      var decoded = decodeURIComponent(escape(binary));
+      parsed = JSON.parse(decoded);
+    }
+
+    if (parsed && parsed.component) {
+      var labelEl = document.getElementById('component-label');
+      if (labelEl) {
+        labelEl.textContent = parsed.component.split('-').map(function(word) {
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse URL state for component:', e);
+  }
+})();
+</script>
+
+<script>
+import { strFromU8, strToU8, unzlibSync } from 'fflate'
+import { DEFAULT_COMPONENT, getComponentLabel, isDestylerComponent } from '../../libs/destyler-deps'
+import { state } from '../../libs/state'
+
+const EVENTS = {
+  COMPONENT_CHANGE: 'component:change',
+  URL_COMPONENT_RESTORED: 'url:component-restored',
+  PLAYGROUND_STATE_READY: 'playground:state-ready',
+} as const
+
+const INIT_DELAY = 300
+
+let expanded = false
+let selectedComponent = state.activeComponent || DEFAULT_COMPONENT
+let isInitializing = true
+
+function getComponentFromUrl(): string | null {
+  try {
+    const hash = window.location.hash
+    if (!hash || hash === '#')
+      return null
+
+    const serializedState = hash.startsWith('#') ? hash.slice(1) : hash
+    const binary = atob(serializedState)
+
+    let parsed: { component?: string }
+    if (binary.charCodeAt(0) === 0x78) {
+      const buffer = strToU8(binary, true)
+      const unzipped = unzlibSync(buffer)
+      const data = strFromU8(unzipped)
+      parsed = JSON.parse(data)
+    }
+    else {
+      const decoded = decodeURIComponent(escape(binary))
+      parsed = JSON.parse(decoded)
+    }
+
+    return parsed.component && isDestylerComponent(parsed.component) ? parsed.component : null
+  }
+  catch {
+    return null
+  }
+}
+
+;(function immediateInit() {
+  const urlComponent = getComponentFromUrl()
+  if (urlComponent) {
+    selectedComponent = urlComponent
+    state.activeComponent = urlComponent
+  }
+
+  const labelEl = document.getElementById('component-label')
+  if (labelEl && selectedComponent)
+    labelEl.textContent = getComponentLabel(selectedComponent)
+})()
+
+function getElements() {
+  return {
+    container: document.getElementById('component-select-container') as HTMLElement | null,
+    trigger: document.getElementById('component-trigger'),
+    label: document.getElementById('component-label'),
+    dropdown: document.getElementById('component-dropdown'),
+  }
+}
+
+function updateUI() {
+  const { label, dropdown } = getElements()
+
+  if (label)
+    label.textContent = getComponentLabel(selectedComponent)
+
+  if (dropdown) {
+    if (expanded) {
+      dropdown.classList.remove('hidden')
+      dropdown.classList.add('block')
+    }
+    else {
+      dropdown.classList.remove('block')
+      dropdown.classList.add('hidden')
+    }
+  }
+
+  dropdown?.querySelectorAll<HTMLElement>('[data-component] a').forEach((anchor) => {
+    const li = anchor.parentElement
+    const value = li?.dataset.component
+    const isActive = value === selectedComponent
+    anchor.classList.toggle('text-accent-foreground', isActive)
+    anchor.classList.toggle('font-medium', isActive)
+  })
+}
+
+function setComponent(component: string) {
+  if (selectedComponent === component) {
+    expanded = false
+    updateUI()
+    return
+  }
+
+  selectedComponent = component
+  expanded = false
+  updateUI()
+
+  if (!isInitializing) {
+    window.dispatchEvent(
+      new CustomEvent(EVENTS.COMPONENT_CHANGE, {
+        detail: { component },
+      }),
+    )
+  }
+}
+
+function toggle() {
+  expanded = !expanded
+  updateUI()
+}
+
+function handleClickOutside() {
+  expanded = false
+  updateUI()
+}
+
+function handleBlur() {
+  if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+    expanded = false
+    updateUI()
+  }
+}
+
+function applyRestoredComponent(component: string | undefined) {
+  if (!component || !isDestylerComponent(component))
+    return
+  if (selectedComponent === component)
+    return
+  isInitializing = true
+  selectedComponent = component
+  updateUI()
+  isInitializing = false
+}
+
+function initComponentSelect() {
+  const { trigger, container, dropdown } = getElements()
+
+  if (!trigger || !container || !dropdown)
+    return
+
+  if ((container as any).__initialized)
+    return
+  ;(container as any).__initialized = true
+
+  const urlComponent = getComponentFromUrl()
+  if (urlComponent) {
+    selectedComponent = urlComponent
+    state.activeComponent = urlComponent
+  }
+
+  dropdown.querySelectorAll<HTMLElement>('[data-component]').forEach((li) => {
+    const component = li.dataset.component
+    if (!component)
+      return
+    li.querySelector('a')?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      setComponent(component)
+    })
+  })
+
+  updateUI()
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation()
+    toggle()
+  })
+
+  window.addEventListener('click', handleClickOutside)
+  window.addEventListener('blur', handleBlur)
+  window.addEventListener(EVENTS.URL_COMPONENT_RESTORED, (e: Event) => {
+    const customEvent = e as CustomEvent<{ component: string }>
+    applyRestoredComponent(customEvent.detail.component)
+  })
+  window.addEventListener(EVENTS.PLAYGROUND_STATE_READY, (e: Event) => {
+    const customEvent = e as CustomEvent<{ component?: string }>
+    applyRestoredComponent(customEvent.detail.component)
+  })
+
+  setTimeout(() => {
+    isInitializing = false
+  }, INIT_DELAY)
+}
+
+document.addEventListener('DOMContentLoaded', initComponentSelect)
+document.addEventListener('astro:page-load', initComponentSelect)
+</script>

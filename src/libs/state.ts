@@ -1,5 +1,6 @@
 import type { File, Framework } from '../templates'
 import type { FrameworkOption } from '../templates/types'
+import { DEFAULT_COMPONENT } from './destyler-deps'
 
 // ============================================================================
 // Constants
@@ -41,6 +42,8 @@ export const FRAMEWORK_OPTIONS: FrameworkOption[] = [
 export interface PlaygroundState {
   /** Currently selected framework */
   activeFramework: Framework
+  /** Currently selected destyler component */
+  activeComponent: string
   /** User's files in the editor */
   files: File[]
   /** Currently active file name */
@@ -75,6 +78,7 @@ export interface PlaygroundState {
  */
 export const state: PlaygroundState = {
   activeFramework: 'vue',
+  activeComponent: DEFAULT_COMPONENT,
   files: [],
   activeFile: '',
   activeConfigFile: null,

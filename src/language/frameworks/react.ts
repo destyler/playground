@@ -1,4 +1,5 @@
 import type { FrameworkConfig, TsConfig } from './types'
+import { getDestylerComponentTypeDeps } from '../../libs/destyler-deps'
 
 /**
  * Shared JSX/TSX language configuration for Monaco
@@ -35,6 +36,8 @@ export const jsxLanguageConfiguration = {
  * React dependencies for CDN type resolution
  */
 const reactDependencies: Record<string, string> = {
+  ...getDestylerComponentTypeDeps(),
+  '@destyler/react': 'latest',
   'typescript': 'latest',
   'react': 'latest',
   'react-dom': 'latest',

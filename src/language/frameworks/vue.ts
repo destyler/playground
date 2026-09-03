@@ -1,4 +1,5 @@
 import type { FrameworkConfig, TsConfig } from './types'
+import { getDestylerComponentTypeDeps } from '../../libs/destyler-deps'
 
 /**
  * Vue language configuration for Monaco
@@ -29,10 +30,10 @@ const vueLanguageConfiguration = {
  * Vue dependencies for CDN type resolution
  */
 const vueDependencies: Record<string, string> = {
+  ...getDestylerComponentTypeDeps(),
   'typescript': 'latest',
   'vue': 'latest',
   '@destyler/vue': 'latest',
-  '@destyler/checkbox': 'latest',
   '@vue/compiler-core': 'latest',
   '@vue/compiler-dom': 'latest',
   '@vue/compiler-sfc': 'latest',

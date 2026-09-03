@@ -16,6 +16,8 @@ export interface UrlState {
   unoConfig?: string
   /** Destyler package version */
   destylerVersion?: string
+  /** Selected destyler component (optional for legacy hashes) */
+  component?: string
 }
 
 // ============================================================================
@@ -120,6 +122,7 @@ export function updateUrlHash(
   importMap?: string,
   unoConfig?: string,
   destylerVersion?: string,
+  component?: string,
 ): void {
   const urlState: UrlState = {
     framework,
@@ -141,6 +144,9 @@ export function updateUrlHash(
   // Save destyler version for sharing
   if (destylerVersion) {
     urlState.destylerVersion = destylerVersion
+  }
+  if (component) {
+    urlState.component = component
   }
 
   const hash = serializeState(urlState)
