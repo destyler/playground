@@ -78,23 +78,23 @@ jobs:
         if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.action == 'closed' && github.event.pull_request.base.ref || github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install pnpm
-        if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
+        if: github.event.action != 'closed'
         uses: pnpm/action-setup@v6
         with:
           version: 10.29.2
 
       - name: Setup Node
-        if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
+        if: github.event.action != 'closed'
         uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
-        if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
+        if: github.event.action != 'closed'
         run: pnpm install --frozen-lockfile
 
       - name: Build playground
@@ -217,7 +217,7 @@ jobs:
           ZEABUR_ENVIRONMENT_ID: ${{ vars.ZEABUR_ENVIRONMENT_ID }}
           SERVICE_ID: ${{ steps.preview-comment.outputs.service_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: pnpm run preview:delete
+        run: node scripts/zeabur-preview.mjs delete
 
       - name: Update closed preview comment
         if: github.event.action == 'closed' && success()
