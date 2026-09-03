@@ -8,7 +8,9 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
-const rootDirectory = path.resolve(scriptDirectory, '..')
+const rootDirectory = process.env.ZEABUR_WORKSPACE
+  ? path.resolve(process.env.ZEABUR_WORKSPACE)
+  : path.resolve(scriptDirectory, '..')
 const distDirectory = path.join(rootDirectory, 'dist')
 const archivePath = path.resolve(rootDirectory, process.env.ZEABUR_ARCHIVE_PATH || 'playground-dist.zip')
 const apiBase = (process.env.ZEABUR_API_BASE || 'https://api.zeabur.com').replace(/\/$/, '')
@@ -406,5 +408,6 @@ Optional environment variables:
   ZEABUR_API_BASE               default: https://api.zeabur.com
   ZEABUR_ARCHIVE_PATH           default: playground-dist.zip
   ZEABUR_PREVIEW_DOMAIN_PREFIX  default: destyler-playground-pr
-  ZEABUR_PREVIEW_TIMEOUT_MS     default: 180000`)
+  ZEABUR_PREVIEW_TIMEOUT_MS     default: 180000
+  ZEABUR_WORKSPACE              default: repository root containing this script`)
 }

@@ -80,6 +80,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Checkout preview tooling
+        if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: .pr-preview-tooling
+          sparse-checkout: scripts/zeabur-preview.mjs
+          sparse-checkout-cone-mode: false
+
       - name: Install pnpm
         if: github.event.action != 'closed'
         uses: pnpm/action-setup@v6
@@ -103,7 +112,9 @@ jobs:
 
       - name: Create preview archive
         if: github.event.action != 'closed'
-        run: pnpm run preview:archive
+        env:
+          ZEABUR_WORKSPACE: ${{ github.workspace }}
+        run: node .pr-preview-tooling/scripts/zeabur-preview.mjs package
 
       - name: Create preview service
         id: create
@@ -112,9 +123,10 @@ jobs:
           ZEABUR_TOKEN: ${{ secrets.ZEABUR_TOKEN }}
           ZEABUR_PROJECT_ID: ${{ vars.ZEABUR_PROJECT_ID }}
           ZEABUR_ENVIRONMENT_ID: ${{ vars.ZEABUR_ENVIRONMENT_ID }}
+          ZEABUR_WORKSPACE: ${{ github.workspace }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
-        run: pnpm run preview:create
+        run: node .pr-preview-tooling/scripts/zeabur-preview.mjs create
 
       - name: Update preview service
         id: update
@@ -123,11 +135,12 @@ jobs:
           ZEABUR_TOKEN: ${{ secrets.ZEABUR_TOKEN }}
           ZEABUR_PROJECT_ID: ${{ vars.ZEABUR_PROJECT_ID }}
           ZEABUR_ENVIRONMENT_ID: ${{ vars.ZEABUR_ENVIRONMENT_ID }}
+          ZEABUR_WORKSPACE: ${{ github.workspace }}
           SERVICE_ID: ${{ steps.preview-comment.outputs.service_id }}
           DOMAIN: ${{ steps.preview-comment.outputs.preview_url }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
-        run: pnpm run preview:update
+        run: node .pr-preview-tooling/scripts/zeabur-preview.mjs update
 
       - name: Resolve preview details
         id: preview
@@ -215,9 +228,10 @@ jobs:
           ZEABUR_TOKEN: ${{ secrets.ZEABUR_TOKEN }}
           ZEABUR_PROJECT_ID: ${{ vars.ZEABUR_PROJECT_ID }}
           ZEABUR_ENVIRONMENT_ID: ${{ vars.ZEABUR_ENVIRONMENT_ID }}
+          ZEABUR_WORKSPACE: ${{ github.workspace }}
           SERVICE_ID: ${{ steps.preview-comment.outputs.service_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: node scripts/zeabur-preview.mjs delete
+        run: node .pr-preview-tooling/scripts/zeabur-preview.mjs delete
 
       - name: Update closed preview comment
         if: github.event.action == 'closed' && success()
