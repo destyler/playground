@@ -57,9 +57,41 @@ export interface TsCompilerOptions {
   resolveJsonModule?: boolean
   isolatedModules?: boolean
   esModuleInterop?: boolean
+  downlevelIteration?: boolean
   strict?: boolean
   skipLibCheck?: boolean
   lib?: string[]
+}
+
+// ============================================================================
+// Async Request Coordination
+// ============================================================================
+
+export interface LatestRequest<TKey> {
+  readonly generation: number
+  readonly key: TKey
+}
+
+export function isCurrentRequestKey<TKey>(requestKey: TKey, currentKey: TKey): boolean {
+  return requestKey === currentKey
+}
+
+/**
+ * Creates an isolated guard for async work where only the newest request may
+ * publish its result. The key also invalidates work as soon as the active mode
+ * changes, before the replacement request has started.
+ */
+export function createLatestRequestGuard<TKey>() {
+  let generation = 0
+
+  return {
+    begin(key: TKey): LatestRequest<TKey> {
+      return { generation: ++generation, key }
+    },
+    isCurrent(request: LatestRequest<TKey>, currentKey: TKey): boolean {
+      return request.generation === generation && isCurrentRequestKey(request.key, currentKey)
+    },
+  }
 }
 
 /**

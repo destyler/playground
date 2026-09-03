@@ -29,7 +29,13 @@ export function generateVueScript(serializedFiles: string, serializedImportMap?:
       const files = ${serializedFiles};
       const importMapData = ${importMapData};
       const externalModules = importMapData.imports || {};
-      ${generateRuntimeHelpers(destylerVersion)}
+      ${generateRuntimeHelpers(destylerVersion, [
+        'vue',
+        '@vue/runtime-core',
+        '@vue/runtime-dom',
+        '@vue/reactivity',
+        '@vue/shared',
+      ])}
 
       function wrapVueModule(module) {
         const plainModule = {};

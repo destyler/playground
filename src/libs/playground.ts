@@ -1,4 +1,5 @@
 import type { File, Framework } from '../templates'
+import { createLatestRequestGuard } from '../language/frameworks'
 import { FRAMEWORKS } from '../templates'
 import { generateHtml } from '../utils/html'
 import { getStateFromUrl, recordToFiles, updateUrlHash } from '../utils/url'
@@ -50,6 +51,7 @@ let iframeRef: HTMLIFrameElement | null = null
 let isIframeLoaded = false
 let previousFramework: Framework = DEFAULT_FRAMEWORK
 let isRestoringFromUrl = false
+const previewUpdateGuard = createLatestRequestGuard<Framework>()
 
 // Debounce timers
 let updateTimer: ReturnType<typeof setTimeout> | null = null
@@ -674,6 +676,11 @@ async function updateIframe(): Promise<void> {
   if (!iframeRef)
     return
 
+  const iframe = iframeRef
+  const request = previewUpdateGuard.begin(state.activeFramework)
+  const isCurrent = () => iframeRef === iframe
+    && previewUpdateGuard.isCurrent(request, state.activeFramework)
+
   if (previousFramework !== state.activeFramework) {
     isIframeLoaded = false
     previousFramework = state.activeFramework
@@ -681,6 +688,8 @@ async function updateIframe(): Promise<void> {
 
   // Always regenerate UnoCSS before updating iframe
   await generateUnoCSS()
+  if (!isCurrent())
+    return
 
   if (isIframeLoaded) {
     // Hot update: send files via postMessage
@@ -689,23 +698,28 @@ async function updateIframe(): Promise<void> {
       return acc
     }, {})
 
-    iframeRef.contentWindow?.postMessage({ type: 'UPDATE_FILES', files: filesMap }, '*')
+    iframe.contentWindow?.postMessage({ type: 'UPDATE_FILES', files: filesMap }, '*')
     // Also send updated UnoCSS
     sendUnoCSSToIframe()
   }
   else {
     // Full reload: regenerate HTML with UnoCSS included
     const importMap = getImportMap()
-    iframeRef.onload = () => {
-      isIframeLoaded = true
-    }
-    iframeRef.srcdoc = await generateHtml(
+    const html = await generateHtml(
       state.activeFramework,
       state.files,
       importMap,
       state.generatedUnoCSS,
       state.destylerVersion,
     )
+    if (!isCurrent())
+      return
+
+    iframe.onload = () => {
+      if (isCurrent())
+        isIframeLoaded = true
+    }
+    iframe.srcdoc = html
   }
 }
 

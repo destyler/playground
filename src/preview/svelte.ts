@@ -43,7 +43,11 @@ export function generateSvelteScript(serializedFiles: string, serializedImportMa
     <script>
       const importMapData = ${importMapData};
       const externalModules = importMapData.imports || {};
-      ${generateRuntimeHelpers(destylerVersion)}
+      ${generateRuntimeHelpers(destylerVersion, [
+        'svelte',
+        'svelte/internal/client',
+        'svelte/internal/disclose-version',
+      ])}
 
       window.__EXTERNAL_MODULES__ = {};
 
@@ -177,11 +181,15 @@ export function generateSvelteScript(serializedFiles: string, serializedImportMa
         }
 
         async function update(files) {
-          if (window.__clearError__) window.__clearError__();
+          const generation = beginPreviewUpdate();
 
           if (files) window.__FILES__ = files;
+          const nextFiles = window.__FILES__;
 
-          await preloadExternalModules(window.__FILES__);
+          await preloadExternalModules(nextFiles);
+          if (!isCurrentPreviewUpdate(generation)) return;
+
+          if (window.__clearError__) window.__clearError__();
           Object.assign(modules, Object.fromEntries(
             Object.entries(window.__EXTERNAL_MODULES__).map(([k, v]) => [k, wrapModule(v)])
           ));
@@ -197,7 +205,7 @@ export function generateSvelteScript(serializedFiles: string, serializedImportMa
           document.getElementById('app').innerHTML = '';
           window.__COMPILED_FILES__ = {};
 
-          for (const [name, content] of Object.entries(window.__FILES__)) {
+          for (const [name, content] of Object.entries(nextFiles)) {
              if (name.endsWith('.svelte')) {
                try {
                  const preprocessedContent = preprocessSvelteTypeScript(content);

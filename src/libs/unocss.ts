@@ -109,6 +109,12 @@ function needsPugExtractor(configRaw?: string): boolean {
   return Boolean(configRaw && /\bextractorPug\b/.test(configRaw))
 }
 
+function hasSourceContent(
+  file: { name: string, content?: string },
+): file is { name: string, content: string } {
+  return typeof file.content === 'string'
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -340,7 +346,10 @@ export async function getUnoGenerator(): Promise<UnoGenerator> {
 export async function generateCSS(
   html: string,
   configRaw?: string,
-  options?: { framework?: Framework, files?: Array<{ name: string }> },
+  options?: {
+    framework?: Framework
+    files?: Array<{ name: string, content?: string }>
+  },
 ): Promise<UnoGenerateResult> {
   try {
     const extraLazyNames: string[] = []
@@ -373,10 +382,24 @@ export async function generateCSS(
     }
 
     const generator = await getUnoGenerator()
-    const result: GenerateResult = await generator.generate(html, {
+    const generationOptions = {
       preflights: true,
       minify: false,
-    })
+    }
+    let result: GenerateResult
+
+    if (options?.files?.length && options.files.every(hasSourceContent)) {
+      const tokens = new Set<string>()
+      for (const file of options.files) {
+        const fileTokens = await generator.applyExtractors(file.content, file.name)
+        for (const token of fileTokens)
+          tokens.add(token)
+      }
+      result = await generator.generate(tokens, generationOptions)
+    }
+    else {
+      result = await generator.generate(html, generationOptions)
+    }
 
     return {
       css: result.css,
@@ -406,7 +429,8 @@ export async function generateCSSFromFiles(
   configRaw?: string,
   framework?: Framework,
 ): Promise<UnoGenerateResult> {
-  // Combine all file contents for scanning
+  // Keep the combined input for backward compatibility while passing each
+  // source separately so file-aware extractors receive the correct id.
   const combinedContent = files.map(f => f.content).join('\n')
   return generateCSS(combinedContent, configRaw, { framework, files })
 }

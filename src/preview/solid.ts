@@ -41,7 +41,7 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
     <script>
       const importMapData = ${importMapData};
       const externalModules = importMapData.imports || {};
-      ${generateRuntimeHelpers(destylerVersion)}
+      ${generateRuntimeHelpers(destylerVersion, ['solid-js', 'solid-js/web'])}
 
       window.__EXTERNAL_MODULES__ = {};
 
@@ -132,11 +132,15 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
         }
 
         async function update(files) {
-          if (window.__clearError__) window.__clearError__();
+          const generation = beginPreviewUpdate();
 
           if (files) window.__FILES__ = files;
+          const nextFiles = window.__FILES__;
 
-          await preloadExternalModules(window.__FILES__);
+          await preloadExternalModules(nextFiles);
+          if (!isCurrentPreviewUpdate(generation)) return;
+
+          if (window.__clearError__) window.__clearError__();
           Object.assign(modules, window.__EXTERNAL_MODULES__);
 
           if (dispose) {
@@ -146,7 +150,7 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
           document.getElementById('app').innerHTML = '';
           window.__COMPILED_FILES__ = {};
 
-          for (const [name, content] of Object.entries(window.__FILES__)) {
+          for (const [name, content] of Object.entries(nextFiles)) {
              if (!/\\.(tsx|ts|jsx|js)$/.test(name) || name === 'uno.config.ts') continue;
              try {
                const solidPreset = resolveSolidPreset();

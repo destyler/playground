@@ -129,23 +129,262 @@ export function getPackageCdnUrl(packageName: string, version: string): string {
   return `${CDN_BASE_URL}/${packageName}${versionTag}`
 }
 
-const STATIC_IMPORT_RE = /(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?from\s+)?['"]([^'"]+)['"]/g
-const DYNAMIC_IMPORT_RE = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+interface SourceToken {
+  kind: 'punctuation' | 'string' | 'word'
+  value: string
+}
+
+function isIdentifierStart(char: string | undefined): boolean {
+  return char !== undefined && /[a-z_$]/i.test(char)
+}
+
+function isIdentifierPart(char: string | undefined): boolean {
+  return char !== undefined && /[\w$]/.test(char)
+}
+
+function readIdentifier(source: string, start: number): { end: number, value: string } | null {
+  if (!isIdentifierStart(source[start]))
+    return null
+
+  let end = start + 1
+  while (isIdentifierPart(source[end]))
+    end++
+
+  return { value: source.slice(start, end), end }
+}
+
+function readString(source: string, start: number): { end: number, value: string } | null {
+  const quote = source[start]
+  if (quote !== '\'' && quote !== '"')
+    return null
+
+  let value = ''
+  let index = start + 1
+  while (index < source.length) {
+    const char = source[index]
+    if (char === quote)
+      return { value, end: index + 1 }
+    if (char === '\\' && index + 1 < source.length) {
+      value += source[index + 1]
+      index += 2
+      continue
+    }
+    if (char === '\n' || char === '\r')
+      return null
+    value += char
+    index++
+  }
+
+  return null
+}
+
+function tokenizeTemplateLiteral(source: string, start: number, tokens: SourceToken[]): number {
+  let index = start + 1
+  while (index < source.length) {
+    if (source[index] === '\\') {
+      index += 2
+      continue
+    }
+    if (source[index] === '`')
+      return index + 1
+    if (source[index] === '$' && source[index + 1] === '{') {
+      index = tokenizeSource(source, index + 2, tokens, true)
+      continue
+    }
+    index++
+  }
+  return source.length
+}
+
+function tokenizeSource(
+  source: string,
+  start: number,
+  tokens: SourceToken[],
+  stopAtClosingBrace = false,
+): number {
+  let index = start
+  let braceDepth = 0
+
+  while (index < source.length) {
+    const char = source[index]
+    if (char === '\'' || char === '"') {
+      const string = readString(source, index)
+      if (string) {
+        tokens.push({ kind: 'string', value: string.value })
+        index = string.end
+      }
+      else {
+        index = source.length
+      }
+      continue
+    }
+    if (char === '`') {
+      index = tokenizeTemplateLiteral(source, index, tokens)
+      continue
+    }
+    if (char === '/' && source[index + 1] === '/') {
+      const newline = source.indexOf('\n', index + 2)
+      index = newline === -1 ? source.length : newline + 1
+      continue
+    }
+    if (char === '/' && source[index + 1] === '*') {
+      const close = source.indexOf('*/', index + 2)
+      index = close === -1 ? source.length : close + 2
+      continue
+    }
+    if (char === '{') {
+      braceDepth++
+      tokens.push({ kind: 'punctuation', value: char })
+      index++
+      continue
+    }
+    if (char === '}') {
+      if (stopAtClosingBrace && braceDepth === 0)
+        return index + 1
+      braceDepth = Math.max(0, braceDepth - 1)
+      tokens.push({ kind: 'punctuation', value: char })
+      index++
+      continue
+    }
+
+    if (/\s/.test(char)) {
+      index++
+      continue
+    }
+
+    const token = readIdentifier(source, index)
+    if (token) {
+      tokens.push({ kind: 'word', value: token.value })
+      index = token.end
+    }
+    else {
+      tokens.push({ kind: 'punctuation', value: char })
+      index++
+    }
+  }
+
+  return source.length
+}
+
+function findFrom(tokens: SourceToken[], start: number): number | undefined {
+  let braceDepth = 0
+
+  for (let index = start; index < tokens.length; index++) {
+    const token = tokens[index]
+    if (token.value === '{')
+      braceDepth++
+    else if (token.value === '}')
+      braceDepth = Math.max(0, braceDepth - 1)
+    else if (braceDepth === 0 && token.value === ';')
+      return undefined
+    else if (braceDepth === 0 && token.value === 'from' && tokens[index + 1]?.kind === 'string')
+      return index
+    else if (braceDepth === 0 && index > start && (token.value === 'import' || token.value === 'export'))
+      return undefined
+  }
+
+  return undefined
+}
+
+function isTypeOnlyNamedClause(tokens: SourceToken[], start: number, end: number): boolean {
+  if (tokens[start]?.value !== '{')
+    return false
+
+  let entryStart = start + 1
+  let hasEntries = false
+  for (let index = entryStart; index <= end; index++) {
+    if (tokens[index]?.value !== ',' && tokens[index]?.value !== '}')
+      continue
+
+    const entry = tokens.slice(entryStart, index)
+    if (entry.length > 0) {
+      hasEntries = true
+      // `{ type }` and `{ type as value }` import a value named "type".
+      if (entry[0].value !== 'type' || !entry[1] || entry[1].value === 'as')
+        return false
+    }
+    entryStart = index + 1
+    if (tokens[index]?.value === '}')
+      break
+  }
+
+  return hasEntries
+}
+
+function collectSpecifiers(tokens: SourceToken[]): string[] {
+  const specifiers = new Set<string>()
+
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index]
+    const next = tokens[index + 1]
+
+    if (token.value === 'require' && next?.value === '(' && tokens[index + 2]?.kind === 'string') {
+      specifiers.add(tokens[index + 2].value)
+      index += 2
+      continue
+    }
+
+    if (token.value === 'import') {
+      if (next?.value === '.')
+        continue
+      if (next?.value === 'type' || next?.value === 'typeof') {
+        const from = findFrom(tokens, index + 2)
+        if (from !== undefined) {
+          index = from + 1
+        }
+        else if (tokens[index + 3]?.value === '='
+          && tokens[index + 4]?.value === 'require'
+          && tokens[index + 5]?.value === '('
+          && tokens[index + 6]?.kind === 'string') {
+          index += 6
+        }
+        continue
+      }
+      if (next?.kind === 'string') {
+        specifiers.add(next.value)
+        index++
+        continue
+      }
+      if (next?.value === '(' && tokens[index + 2]?.kind === 'string') {
+        specifiers.add(tokens[index + 2].value)
+        index += 2
+        continue
+      }
+
+      const from = findFrom(tokens, index + 1)
+      if (from !== undefined) {
+        if (!isTypeOnlyNamedClause(tokens, index + 1, from))
+          specifiers.add(tokens[from + 1].value)
+        index = from + 1
+      }
+      continue
+    }
+
+    if (token.value === 'export' && (next?.value === '*' || next?.value === '{')) {
+      const from = findFrom(tokens, index + 1)
+      if (from !== undefined) {
+        if (next.value === '*' || !isTypeOnlyNamedClause(tokens, index + 1, from))
+          specifiers.add(tokens[from + 1].value)
+        index = from + 1
+      }
+    }
+  }
+
+  return [...specifiers]
+}
 
 /**
- * Collects bare module specifiers from `from '...'` / `import('...')` / side-effect imports.
+ * Collects runtime module specifiers without treating comments, strings, or
+ * type-only imports as dependencies.
  */
 export function collectImportSpecifiers(sources: Iterable<string>): string[] {
   const specifiers = new Set<string>()
 
   for (const source of sources) {
-    STATIC_IMPORT_RE.lastIndex = 0
-    DYNAMIC_IMPORT_RE.lastIndex = 0
-    let match: RegExpExecArray | null
-    while ((match = STATIC_IMPORT_RE.exec(source)))
-      specifiers.add(match[1])
-    while ((match = DYNAMIC_IMPORT_RE.exec(source)))
-      specifiers.add(match[1])
+    const tokens: SourceToken[] = []
+    tokenizeSource(source, 0, tokens)
+    for (const specifier of collectSpecifiers(tokens))
+      specifiers.add(specifier)
   }
 
   return [...specifiers]

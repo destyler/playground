@@ -4,7 +4,7 @@ import type { File, Framework } from '../templates'
 import * as volar from '@volar/monaco'
 import * as monaco from 'monaco-editor-core'
 import EditorWorker from 'monaco-editor-core/esm/vs/editor/editor.worker?worker'
-import { getFrameworkConfig, hasLanguageServiceSupport, loadFrameworkConfig } from '../language/frameworks'
+import { createLatestRequestGuard, getFrameworkConfig, hasLanguageServiceSupport, isCurrentRequestKey, loadFrameworkConfig } from '../language/frameworks'
 import { FRAMEWORKS } from '../templates'
 import { registerHighlighter } from '../theme/highlighter'
 import { CONFIG_FILES, READ_ONLY_CONFIG_FILES, state } from './state'
@@ -21,7 +21,7 @@ type ConfigChangeCallback = (configFile: string, content: string) => void
 // Constants
 // ============================================================================
 
-const TS_CDN_VERSION = 'latest'
+const TS_CDN_VERSION = '5.6.2'
 
 type WorkerConstructor = new () => Worker
 
@@ -288,7 +288,7 @@ export async function initEditor(): Promise<void> {
     registerLanguages(frameworkConfig)
 
   syncFilesToModels()
-  updateActiveModel()
+  restoreActiveEditorModel()
 
   // Initialize UnoCSS integration (hover, autocomplete, decorations)
   injectUnocssStyles()
@@ -299,10 +299,13 @@ export async function initEditor(): Promise<void> {
 
 function scheduleLanguageServiceSetup(framework: Framework): void {
   const run = () => {
+    if (!isCurrentRequestKey(framework, state.activeFramework))
+      return
+
     void setupLanguageService(framework)
       .then(() => {
         syncFilesToModels()
-        updateActiveModel()
+        restoreActiveEditorModel()
       })
       .catch((error) => {
         console.error('[Editor] Deferred language service setup failed:', error)
@@ -314,6 +317,15 @@ function scheduleLanguageServiceSetup(framework: Framework): void {
   }
   else {
     setTimeout(run, 0)
+  }
+}
+
+function restoreActiveEditorModel(): void {
+  if (state.activeConfigFile) {
+    setEditorToConfigFile(state.activeConfigFile)
+  }
+  else {
+    updateActiveModel()
   }
 }
 
@@ -386,15 +398,22 @@ function handleUserFileChange(rawFileName: string, newValue: string): void {
 // Language Service
 // ============================================================================
 
-let languageServiceToken = 0
+const languageServiceGuard = createLatestRequestGuard<Framework>()
 
 /**
  * Sets up language service for a framework
  */
 export async function setupLanguageService(framework: Framework, clearModels = false): Promise<void> {
-  const token = ++languageServiceToken
+  const request = languageServiceGuard.begin(framework)
+  const isCurrent = () => languageServiceGuard.isCurrent(request, state.activeFramework)
+
   await registerHighlighter(framework)
+  if (!isCurrent())
+    return
+
   const config = await loadFrameworkConfig(framework)
+  if (!isCurrent())
+    return
 
   // Cleanup previous language service
   disposeVolar?.()
@@ -415,20 +434,18 @@ export async function setupLanguageService(framework: Framework, clearModels = f
 
   const tsconfig = buildTsConfig(config)
   const worker = createLanguageWorker(config, tsconfig)
-  volarWorker = worker
+  const localDisposeVolar = await setupVolarProviders(config, worker)
 
-  await setupVolarProviders(config, worker)
-  if (token !== languageServiceToken) {
-    disposeVolar?.()
-    disposeVolar = undefined
-    editorOpenerDispose?.dispose()
-    editorOpenerDispose = undefined
+  if (!isCurrent() || !localDisposeVolar) {
+    localDisposeVolar?.()
     worker.dispose()
-    if (volarWorker === worker)
-      volarWorker = null
     return
   }
-  setupEditorOpener(config)
+
+  const localEditorOpenerDispose = setupEditorOpener(config)
+  disposeVolar = localDisposeVolar
+  editorOpenerDispose = localEditorOpenerDispose
+  volarWorker = worker
 }
 
 /**
@@ -487,27 +504,34 @@ function createLanguageWorker(
 async function setupVolarProviders(
   config: FrameworkConfig,
   worker: monaco.editor.MonacoWebWorker<WorkerLanguageService>,
-): Promise<void> {
+): Promise<(() => void) | undefined> {
   const getSyncUris = () => {
     return monaco.editor.getModels()
       .filter(model => !model.uri.path.includes('node_modules'))
       .map(model => model.uri)
   }
 
+  let disposeMarkers: (() => void) | undefined
+  let disposeAutoInsertion: (() => void) | undefined
+
   try {
-    const { dispose: disposeMarkers } = volar.activateMarkers(
+    const markers = volar.activateMarkers(
       worker,
       config.languageIds,
       config.type,
       getSyncUris,
       monaco.editor,
     )
-    const { dispose: disposeAutoInsertion } = volar.activateAutoInsertion(
+    disposeMarkers = markers.dispose
+
+    const autoInsertion = volar.activateAutoInsertion(
       worker,
       config.languageIds,
       getSyncUris,
       monaco.editor,
     )
+    disposeAutoInsertion = autoInsertion.dispose
+
     const { dispose: disposeProviders } = await volar.registerProviders(
       worker,
       config.languageIds,
@@ -515,22 +539,25 @@ async function setupVolarProviders(
       monaco.languages,
     )
 
-    disposeVolar = () => {
-      disposeMarkers()
-      disposeAutoInsertion()
+    return () => {
+      disposeMarkers?.()
+      disposeAutoInsertion?.()
       disposeProviders()
     }
   }
   catch (error) {
+    disposeMarkers?.()
+    disposeAutoInsertion?.()
     console.error(`[Editor] Volar setup failed for ${config.type}:`, error)
+    return undefined
   }
 }
 
 /**
  * Sets up the editor opener for go-to-definition
  */
-function setupEditorOpener(config: FrameworkConfig): void {
-  editorOpenerDispose = monaco.editor.registerEditorOpener({
+function setupEditorOpener(config: FrameworkConfig): monaco.IDisposable {
+  return monaco.editor.registerEditorOpener({
     openCodeEditor(_source, resource) {
       if (resource.toString().startsWith('file:///node_modules')) {
         return true
