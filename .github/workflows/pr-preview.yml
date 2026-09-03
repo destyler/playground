@@ -27,7 +27,7 @@ jobs:
     steps:
       - name: Find preview comment
         id: preview-comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ github.token }}
           script: |
@@ -76,7 +76,7 @@ jobs:
 
       - name: Checkout
         if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.action == 'closed' && github.event.pull_request.base.ref || github.event.pull_request.head.sha }}
 
@@ -88,7 +88,7 @@ jobs:
 
       - name: Setup Node
         if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -132,7 +132,7 @@ jobs:
       - name: Resolve preview details
         id: preview
         if: github.event.action != 'closed'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           NEW_SERVICE_ID: ${{ steps.create.outputs.service_id || steps.update.outputs.service_id }}
           EXISTING_SERVICE_ID: ${{ steps.preview-comment.outputs.service_id }}
@@ -163,7 +163,7 @@ jobs:
 
       - name: Update active preview comment
         if: github.event.action != 'closed' && success()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           COMMENT_ID: ${{ steps.preview-comment.outputs.comment_id }}
           SERVICE_ID: ${{ steps.preview.outputs.service_id }}
@@ -221,7 +221,7 @@ jobs:
 
       - name: Update closed preview comment
         if: github.event.action == 'closed' && success()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           COMMENT_ID: ${{ steps.preview-comment.outputs.comment_id }}
           HAD_SERVICE: ${{ steps.preview-comment.outputs.has_service }}
@@ -262,7 +262,7 @@ jobs:
 
       - name: Update preview failure comment
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           COMMENT_ID: ${{ steps.preview-comment.outputs.comment_id }}
           EXISTING_SERVICE_ID: ${{ steps.preview-comment.outputs.service_id }}
