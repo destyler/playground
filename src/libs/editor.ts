@@ -5,6 +5,7 @@ import * as volar from '@volar/monaco'
 import * as monaco from 'monaco-editor-core'
 import EditorWorker from 'monaco-editor-core/esm/vs/editor/editor.worker?worker'
 import { createLatestRequestGuard, getFrameworkConfig, hasLanguageServiceSupport, isCurrentRequestKey, loadFrameworkConfig } from '../language/frameworks'
+import { TYPESCRIPT_VERSION } from '../language/typescript'
 import { FRAMEWORKS } from '../templates'
 import { registerHighlighter } from '../theme/highlighter'
 import { CONFIG_FILES, READ_ONLY_CONFIG_FILES, state } from './state'
@@ -20,8 +21,6 @@ type ConfigChangeCallback = (configFile: string, content: string) => void
 // ============================================================================
 // Constants
 // ============================================================================
-
-const TS_CDN_VERSION = '5.6.2'
 
 type WorkerConstructor = new () => Worker
 
@@ -170,7 +169,7 @@ async function initializeWorker(WorkerClass: new () => Worker): Promise<Worker> 
     })
     worker.postMessage({
       event: 'init',
-      tsVersion: TS_CDN_VERSION,
+      tsVersion: TYPESCRIPT_VERSION,
       tsLocale: undefined,
     } satisfies WorkerMessage)
   })

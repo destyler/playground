@@ -1,4 +1,5 @@
 import type { FrameworkConfig, TsConfig } from './types'
+import { TYPESCRIPT_DEPENDENCY } from '../typescript'
 
 /**
  * Shared JSX/TSX language configuration for Monaco
@@ -35,7 +36,7 @@ export const jsxLanguageConfiguration = {
  * React dependencies for CDN type resolution
  */
 const reactDependencies: Record<string, string> = {
-  'typescript': 'latest',
+  ...TYPESCRIPT_DEPENDENCY,
   'react': 'latest',
   'react-dom': 'latest',
   '@types/react': 'latest',

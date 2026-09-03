@@ -1,11 +1,12 @@
 import type { FrameworkConfig, TsConfig } from './types'
+import { TYPESCRIPT_DEPENDENCY } from '../typescript'
 import { jsxLanguageConfiguration } from './react'
 
 /**
  * Solid dependencies for CDN type resolution
  */
 const solidDependencies: Record<string, string> = {
-  'typescript': 'latest',
+  ...TYPESCRIPT_DEPENDENCY,
   'solid-js': 'latest',
   // UnoCSS types for uno.config.ts
   'unocss': 'latest',

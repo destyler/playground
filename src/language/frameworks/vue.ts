@@ -1,4 +1,5 @@
 import type { FrameworkConfig, TsConfig } from './types'
+import { TYPESCRIPT_DEPENDENCY } from '../typescript'
 
 /**
  * Vue language configuration for Monaco
@@ -29,7 +30,7 @@ const vueLanguageConfiguration = {
  * Vue dependencies for CDN type resolution
  */
 const vueDependencies: Record<string, string> = {
-  'typescript': 'latest',
+  ...TYPESCRIPT_DEPENDENCY,
   'vue': 'latest',
   '@destyler/vue': 'latest',
   '@destyler/checkbox': 'latest',
