@@ -183,7 +183,7 @@ jobs:
               '<!-- zeabur-preview-url:' + previewUrl + ' -->',
               '## ✅ PR Preview is ready',
               '',
-              `[打开预览](${previewUrl})`,
+              `[Open preview](${previewUrl})`,
               '',
               `- Commit: \`${shortSha}\``,
               `- Service ID: \`${serviceId}\``,
@@ -231,8 +231,8 @@ jobs:
             const marker = '<!-- destyler-pr-preview -->'
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
             const result = process.env.HAD_SERVICE === 'true'
-              ? '已删除该 PR 的 Zeabur 预览服务。'
-              : '该 PR 没有需要删除的预览服务。'
+              ? 'The Zeabur preview service for this PR has been deleted.'
+              : 'This PR did not have a preview service to delete.'
             const body = [
               marker,
               '## 🧹 PR Preview has been removed',
@@ -276,7 +276,7 @@ jobs:
             const serviceId = process.env.NEW_SERVICE_ID || process.env.EXISTING_SERVICE_ID
             const previewUrl = process.env.NEW_PREVIEW_URL || process.env.EXISTING_PREVIEW_URL
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
-            const operation = context.payload.action === 'closed' ? '删除' : '部署'
+            const operation = context.payload.action === 'closed' ? 'removal' : 'deployment'
             const metadata = [marker]
 
             if (serviceId)
@@ -288,9 +288,9 @@ jobs:
               ...metadata,
               '## ❌ PR Preview failed',
               '',
-              `Zeabur 预览服务${operation}失败。`,
+              `Zeabur preview service ${operation} failed.`,
               '',
-              `请查看 [GitHub Actions](${runUrl}) 了解详情。`,
+              `See [GitHub Actions](${runUrl}) for details.`,
             ].join('\n')
 
             if (process.env.COMMENT_ID) {
