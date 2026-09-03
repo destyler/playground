@@ -7,14 +7,17 @@
  * @module preview/vue
  */
 
+import { generateRuntimeHelpers } from './runtime-helpers'
+
 /**
  * Generates the Vue preview runtime script
  *
  * @param serializedFiles - JSON serialized file contents
  * @param serializedImportMap - JSON serialized import map for external modules
+ * @param destylerVersion - Selected destyler version (pins esm.sh URLs when not latest)
  * @returns HTML script tags for Vue runtime
  */
-export function generateVueScript(serializedFiles: string, serializedImportMap?: string) {
+export function generateVueScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest') {
   const importMapData = serializedImportMap || '{}'
 
   return `
@@ -26,59 +29,69 @@ export function generateVueScript(serializedFiles: string, serializedImportMap?:
       const files = ${serializedFiles};
       const importMapData = ${importMapData};
       const externalModules = importMapData.imports || {};
+      ${generateRuntimeHelpers(destylerVersion, [
+        'vue',
+        '@vue/runtime-core',
+        '@vue/runtime-dom',
+        '@vue/reactivity',
+        '@vue/shared',
+      ])}
 
-      // Pre-load external modules into the module cache
-      async function preloadExternalModules() {
-        // Use the same Vue instance from import map
-        const moduleCache = {
-          vue: Vue,
-        };
-
-        for (const [moduleName, moduleUrl] of Object.entries(externalModules)) {
-          try {
-            // Skip Vue - it's already loaded above
-            if (moduleName === 'vue') continue;
-
-
-            const module = await import(moduleUrl);
-
-            // Create a plain object copy since ES Modules are frozen
-            const plainModule = {};
-
-            // Copy all named exports
-            for (const key of Object.keys(module)) {
-              plainModule[key] = module[key];
-            }
-
-            // Ensure default is set (some modules have it as a getter)
-            if (module.default !== undefined) {
-              plainModule.default = module.default;
-            }
-
-            // For modules where the main export is a function (like dayjs),
-            // make the module itself callable
-            if (typeof module.default === 'function') {
-              const wrapper = function(...args) {
-                return module.default(...args);
-              };
-              Object.assign(wrapper, plainModule);
-              wrapper.default = module.default;
-              moduleCache[moduleName] = wrapper;
-            } else {
-              moduleCache[moduleName] = plainModule;
-            }
-
-          } catch (e) {
-            console.error('[Vue Playground] Failed to pre-load module:', moduleName, e);
-          }
+      function wrapVueModule(module) {
+        const plainModule = {};
+        for (const key of Object.keys(module)) {
+          plainModule[key] = module[key];
         }
+        if (module.default !== undefined) {
+          plainModule.default = module.default;
+        }
+        if (typeof module.default === 'function') {
+          const wrapper = function(...args) {
+            return module.default(...args);
+          };
+          Object.assign(wrapper, plainModule);
+          wrapper.default = module.default;
+          return wrapper;
+        }
+        return plainModule;
+      }
 
+      async function loadIntoCache(moduleCache, moduleName) {
+        if (moduleCache[moduleName]) return moduleCache[moduleName];
+        const moduleUrl = resolveExternalUrl(moduleName);
+        if (!moduleUrl) return null;
+        const module = await import(moduleUrl);
+        const wrapped = wrapVueModule(module);
+        moduleCache[moduleName] = wrapped;
+        return wrapped;
+      }
+
+      async function preloadExternalModules(fileMap) {
+        const moduleCache = { vue: Vue };
+        const names = collectPreloadNames(fileMap);
+        await runPool(names, PRELOAD_CONCURRENCY, async (moduleName) => {
+          await loadIntoCache(moduleCache, moduleName);
+        });
         return moduleCache;
       }
 
       let options = null;
       let currentApp = null;
       let moduleCache = null;
+
+      async function ensureModulesForFiles(fileMap) {
+        if (!moduleCache) {
+          moduleCache = await preloadExternalModules(fileMap);
+          return;
+        }
+        const names = collectPreloadNames(fileMap);
+        await runPool(names, PRELOAD_CONCURRENCY, async (moduleName) => {
+          const wrapped = await loadIntoCache(moduleCache, moduleName);
+          if (wrapped && options) {
+            options.moduleCache[moduleName] = wrapped;
+          }
+        });
+      }
 
       async function update(newFiles) {
         // Clear any previous errors
@@ -88,10 +101,7 @@ export function generateVueScript(serializedFiles: string, serializedImportMap?:
           Object.assign(files, newFiles);
         }
 
-        // Pre-load external modules (only once or when refreshing)
-        if (!moduleCache) {
-          moduleCache = await preloadExternalModules();
-        }
+        await ensureModulesForFiles(files);
 
         // Initialize options with moduleCache
         if (!options) {
@@ -113,35 +123,20 @@ export function generateVueScript(serializedFiles: string, serializedImportMap?:
                 return '';
               }
 
-              // Check if it's in our import map (external modules)
-              if (externalModules[url] || externalModules[filename]) {
-                const moduleUrl = externalModules[url] || externalModules[filename];
+              const requested = (externalModules[url] || moduleCache[url]) ? url
+                : (externalModules[filename] || moduleCache[filename]) ? filename
+                : (url.startsWith('@destyler/') || filename.startsWith('@destyler/')) ? (url.startsWith('@destyler/') ? url : filename)
+                : null;
+
+              if (requested && (externalModules[requested] || requested.startsWith('@destyler/'))) {
                 try {
-                  // Dynamically load the module and add to cache
-                  const module = await import(moduleUrl);
-                  const plainModule = {};
-                  for (const key of Object.keys(module)) {
-                    plainModule[key] = module[key];
+                  const wrapped = await loadIntoCache(moduleCache, requested);
+                  if (!wrapped) {
+                    throw new Error('Failed to load module: ' + requested);
                   }
-                  if (module.default !== undefined) {
-                    plainModule.default = module.default;
-                  }
-                  if (typeof module.default === 'function') {
-                    const wrapper = function(...args) {
-                      return module.default(...args);
-                    };
-                    Object.assign(wrapper, plainModule);
-                    wrapper.default = module.default;
-                    moduleCache[url] = wrapper;
-                    moduleCache[filename] = wrapper;
-                    options.moduleCache[url] = wrapper;
-                    options.moduleCache[filename] = wrapper;
-                  } else {
-                    moduleCache[url] = plainModule;
-                    moduleCache[filename] = plainModule;
-                    options.moduleCache[url] = plainModule;
-                    options.moduleCache[filename] = plainModule;
-                  }
+                  options.moduleCache[requested] = wrapped;
+                  options.moduleCache[url] = wrapped;
+                  options.moduleCache[filename] = wrapped;
                   return '';
                 } catch (e) {
                   console.error('[Vue Playground] Failed to load module:', url, e);

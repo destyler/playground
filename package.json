@@ -9,6 +9,7 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "test": "node --test tests/*.test.ts",
     "preview:archive": "node scripts/zeabur-preview.mjs package",
     "preview:create": "node scripts/zeabur-preview.mjs create",
     "preview:update": "node scripts/zeabur-preview.mjs update",

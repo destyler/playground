@@ -1,4 +1,5 @@
 import type { File, Framework } from '../templates'
+import { createLatestRequestGuard } from '../language/frameworks'
 import { FRAMEWORKS } from '../templates'
 import { generateHtml } from '../utils/html'
 import { getStateFromUrl, recordToFiles, updateUrlHash } from '../utils/url'
@@ -35,7 +36,6 @@ const DEBOUNCE_DELAYS = {
   CLICK: 200,
   URL_RESTORE: 100,
   URL_RESTORE_COMPLETE: 200,
-  IFRAME_LOAD: 500,
 } as const
 
 /**
@@ -51,6 +51,7 @@ let iframeRef: HTMLIFrameElement | null = null
 let isIframeLoaded = false
 let previousFramework: Framework = DEFAULT_FRAMEWORK
 let isRestoringFromUrl = false
+const previewUpdateGuard = createLatestRequestGuard<Framework>()
 
 // Debounce timers
 let updateTimer: ReturnType<typeof setTimeout> | null = null
@@ -99,17 +100,15 @@ export async function initPlayground(): Promise<void> {
   // Generate initial UnoCSS
   await generateUnoCSS()
 
-  updateIframe()
+  await updateIframe()
 
-  // Initialize editor
-  await initEditor()
+  // Shell (tabs + preview srcdoc) is ready — hide splash without waiting for Monaco/Volar
+  window.dispatchEvent(new CustomEvent('playground:shell-ready'))
 
-  // Handle special case for non-default framework from URL
-  if (urlState && urlState.framework !== DEFAULT_FRAMEWORK) {
-    await setupLanguageService(urlState.framework, true)
-    syncFilesToModels()
-    updateActiveModel()
-  }
+  // Editor + language service continue in the background
+  void initEditor().catch((error) => {
+    console.error('[Playground] Editor initialization failed:', error)
+  })
 }
 
 /**
@@ -261,7 +260,7 @@ async function handleFrameworkChange(framework: Framework): Promise<void> {
   updateConfigButtonStates()
 
   isIframeLoaded = false
-  updateIframe()
+  await updateIframe()
   scheduleUrlUpdate()
 }
 
@@ -641,6 +640,7 @@ async function generateUnoCSS(): Promise<void> {
     const result = await generateCSSFromFiles(
       state.files,
       state.unoConfigContent,
+      state.activeFramework,
     )
 
     state.generatedUnoCSS = result.css
@@ -676,6 +676,11 @@ async function updateIframe(): Promise<void> {
   if (!iframeRef)
     return
 
+  const iframe = iframeRef
+  const request = previewUpdateGuard.begin(state.activeFramework)
+  const isCurrent = () => iframeRef === iframe
+    && previewUpdateGuard.isCurrent(request, state.activeFramework)
+
   if (previousFramework !== state.activeFramework) {
     isIframeLoaded = false
     previousFramework = state.activeFramework
@@ -683,6 +688,8 @@ async function updateIframe(): Promise<void> {
 
   // Always regenerate UnoCSS before updating iframe
   await generateUnoCSS()
+  if (!isCurrent())
+    return
 
   if (isIframeLoaded) {
     // Hot update: send files via postMessage
@@ -691,23 +698,28 @@ async function updateIframe(): Promise<void> {
       return acc
     }, {})
 
-    iframeRef.contentWindow?.postMessage({ type: 'UPDATE_FILES', files: filesMap }, '*')
+    iframe.contentWindow?.postMessage({ type: 'UPDATE_FILES', files: filesMap }, '*')
     // Also send updated UnoCSS
     sendUnoCSSToIframe()
   }
   else {
     // Full reload: regenerate HTML with UnoCSS included
     const importMap = getImportMap()
-    iframeRef.srcdoc = generateHtml(
+    const html = await generateHtml(
       state.activeFramework,
       state.files,
       importMap,
       state.generatedUnoCSS,
       state.destylerVersion,
     )
-    setTimeout(() => {
-      isIframeLoaded = true
-    }, DEBOUNCE_DELAYS.IFRAME_LOAD)
+    if (!isCurrent())
+      return
+
+    iframe.onload = () => {
+      if (isCurrent())
+        isIframeLoaded = true
+    }
+    iframe.srcdoc = html
   }
 }
 
@@ -716,5 +728,5 @@ async function updateIframe(): Promise<void> {
  */
 export function refreshPreview(): void {
   isIframeLoaded = false
-  updateIframe()
+  void updateIframe()
 }

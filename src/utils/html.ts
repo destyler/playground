@@ -1,10 +1,6 @@
 import type { File, Framework } from '../templates'
 import type { ImportMap, UserImportMap } from '../templates/types'
-import { getAllDestylerImports } from '../libs/destyler-deps'
-import { generateReactScript } from '../preview/react'
-import { generateSolidScript } from '../preview/solid'
-import { generateSvelteScript } from '../preview/svelte'
-import { generateVueScript } from '../preview/vue'
+import { getUsedDestylerImports } from '../libs/destyler-deps'
 
 // ============================================================================
 // Constants
@@ -58,16 +54,23 @@ const FRAMEWORK_CDNS: Readonly<Record<Framework, readonly string[]>> = {
 }
 
 /**
- * Script generators for each framework
+ * Script generators for each framework (loaded only for the active mode)
  * Vue needs the import map for external module resolution
  */
-type ScriptGenerator = (serializedFiles: string, serializedImportMap?: string) => string
+type ScriptGenerator = (serializedFiles: string, serializedImportMap?: string, destylerVersion?: string) => string
 
-const SCRIPT_GENERATORS: Readonly<Record<Framework, ScriptGenerator>> = {
-  vue: generateVueScript,
-  react: generateReactScript,
-  solid: generateSolidScript,
-  svelte: generateSvelteScript,
+async function loadScriptGenerator(framework: Framework): Promise<ScriptGenerator> {
+  switch (framework) {
+    case 'react':
+      return (await import('../preview/react')).generateReactScript
+    case 'solid':
+      return (await import('../preview/solid')).generateSolidScript
+    case 'svelte':
+      return (await import('../preview/svelte')).generateSvelteScript
+    case 'vue':
+    default:
+      return (await import('../preview/vue')).generateVueScript
+  }
 }
 
 // ============================================================================
@@ -235,16 +238,16 @@ function createUnoUpdateScript(): string {
  * @param destylerVersion - Optional destyler package version (defaults to 'latest')
  * @returns Complete HTML string
  */
-export function generateHtml(
+export async function generateHtml(
   framework: Framework,
   files: File[],
   userImportMap?: UserImportMap,
   unoCSS?: string,
   destylerVersion: string = 'latest',
-): string {
+): Promise<string> {
   const coreImports = CORE_IMPORTS[framework]
-  // Get all destyler imports based on framework and version
-  const destylerImports = getAllDestylerImports(destylerVersion, framework)
+  // Only destyler packages actually imported by playground files
+  const destylerImports = getUsedDestylerImports(files, destylerVersion, framework)
   // Merge core, destyler, and user imports
   const mergedCoreImports = { ...coreImports, ...destylerImports }
   const finalImportMap = mergeImportMaps(mergedCoreImports, userImportMap)
@@ -253,7 +256,8 @@ export function generateHtml(
   const serializedFiles = serializeFilesToMap(files)
   const serializedImportMap = JSON.stringify(finalImportMap).replace(/<\//g, '\\x3C/')
   const errorHandling = createErrorHandlingScript()
-  const scriptContent = SCRIPT_GENERATORS[framework](serializedFiles, serializedImportMap)
+  const generateScript = await loadScriptGenerator(framework)
+  const scriptContent = generateScript(serializedFiles, serializedImportMap, destylerVersion)
 
   // UnoCSS styles
   const unoStyles = createUnoStyleTag(unoCSS || '')
