@@ -82,7 +82,7 @@ jobs:
 
       - name: Install pnpm
         if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.29.2
 
