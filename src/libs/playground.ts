@@ -1,8 +1,9 @@
 import type { File, Framework } from '../templates'
 import { createLatestRequestGuard } from '../language/frameworks'
-import { FRAMEWORKS } from '../templates'
+import { getComponentExampleFiles } from '../templates'
 import { generateHtml } from '../utils/html'
 import { getStateFromUrl, recordToFiles, updateUrlHash } from '../utils/url'
+import { DEFAULT_COMPONENT, isDestylerComponent } from './destyler-deps'
 import {
   disposeOldModel,
   getImportMap,
@@ -85,6 +86,7 @@ export async function initPlayground(): Promise<void> {
     detail: {
       framework: state.activeFramework,
       destylerVersion: state.destylerVersion,
+      component: state.activeComponent,
     },
   }))
 
@@ -127,11 +129,12 @@ function initializeState(urlState: ReturnType<typeof getStateFromUrl>): void {
  * Restores state from URL parameters
  */
 function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFromUrl>>): void {
-  const { framework, files: filesRecord, tsconfig, importMap, unoConfig, destylerVersion } = urlState
+  const { framework, files: filesRecord, tsconfig, importMap, unoConfig, destylerVersion, component } = urlState
   const files = recordToFiles(filesRecord)
 
   state.activeFramework = framework
-  state.files = files.length > 0 ? files : FRAMEWORKS[framework].defaultFiles
+  state.activeComponent = component && isDestylerComponent(component) ? component : DEFAULT_COMPONENT
+  state.files = files.length > 0 ? files : getComponentExampleFiles(framework, state.activeComponent)
   state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
 
   if (tsconfig) {
@@ -156,7 +159,10 @@ function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFro
   // Notify Select component about the framework change
   setTimeout(() => {
     window.dispatchEvent(new CustomEvent('url:framework-restored', {
-      detail: { framework, destylerVersion },
+      detail: { framework, destylerVersion, component: state.activeComponent },
+    }))
+    window.dispatchEvent(new CustomEvent('url:component-restored', {
+      detail: { component: state.activeComponent },
     }))
     setTimeout(() => {
       isRestoringFromUrl = false
@@ -169,7 +175,8 @@ function restoreStateFromUrl(urlState: NonNullable<ReturnType<typeof getStateFro
  */
 function setDefaultState(): void {
   state.activeFramework = DEFAULT_FRAMEWORK
-  state.files = FRAMEWORKS[DEFAULT_FRAMEWORK].defaultFiles
+  state.activeComponent = DEFAULT_COMPONENT
+  state.files = getComponentExampleFiles(DEFAULT_FRAMEWORK, DEFAULT_COMPONENT)
   state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
 }
 
@@ -230,6 +237,10 @@ function setupEventListeners(): void {
     scheduleUrlUpdate()
     scheduleIframeUpdate()
   }) as EventListener)
+
+  window.addEventListener('component:change', ((e: CustomEvent<{ component: string }>) => {
+    handleComponentChange(e.detail.component)
+  }) as EventListener)
 }
 
 // ============================================================================
@@ -246,7 +257,7 @@ async function handleFrameworkChange(framework: Framework): Promise<void> {
   }
 
   state.activeFramework = framework
-  state.files = FRAMEWORKS[framework].defaultFiles
+  state.files = getComponentExampleFiles(framework, state.activeComponent)
   state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
   state.activeConfigFile = null
 
@@ -262,6 +273,64 @@ async function handleFrameworkChange(framework: Framework): Promise<void> {
   isIframeLoaded = false
   await updateIframe()
   scheduleUrlUpdate()
+}
+
+/**
+ * Handles destyler component change from the UI.
+ * Keeps the current framework template configs and replaces editor files.
+ */
+async function handleComponentChange(component: string): Promise<void> {
+  if (isRestoringFromUrl)
+    return
+
+  const next = isDestylerComponent(component) ? component : DEFAULT_COMPONENT
+  state.activeComponent = next
+  state.files = getComponentExampleFiles(state.activeFramework, next)
+  state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
+  state.activeConfigFile = null
+
+  syncFilesToModels()
+  updateActiveModel()
+  renderFileTabs()
+  updateConfigButtonStates()
+
+  isIframeLoaded = false
+  await updateIframe()
+  scheduleUrlUpdate()
+}
+
+/**
+ * Resets the playground to Vue + checkbox defaults.
+ */
+export async function resetPlayground(): Promise<void> {
+  state.activeFramework = DEFAULT_FRAMEWORK
+  state.activeComponent = DEFAULT_COMPONENT
+  state.destylerVersion = 'latest'
+  state.files = getComponentExampleFiles(DEFAULT_FRAMEWORK, DEFAULT_COMPONENT)
+  state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
+  state.activeConfigFile = null
+
+  resetConfigContent()
+  await setupLanguageService(DEFAULT_FRAMEWORK, true)
+  syncFilesToModels()
+  updateActiveModel()
+  renderFileTabs()
+  updateConfigButtonStates()
+
+  isIframeLoaded = false
+  await updateIframe()
+  scheduleUrlUpdate()
+
+  window.dispatchEvent(new CustomEvent('url:framework-restored', {
+    detail: {
+      framework: state.activeFramework,
+      destylerVersion: state.destylerVersion,
+      component: state.activeComponent,
+    },
+  }))
+  window.dispatchEvent(new CustomEvent('url:component-restored', {
+    detail: { component: state.activeComponent },
+  }))
 }
 
 // ============================================================================
@@ -601,7 +670,7 @@ function scheduleUrlUpdate(): void {
   if (urlUpdateTimer)
     clearTimeout(urlUpdateTimer)
   urlUpdateTimer = setTimeout(() => {
-    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent, state.unoConfigContent, state.destylerVersion)
+    updateUrlHash(state.activeFramework, state.files, state.tsconfigContent, state.importMapContent, state.unoConfigContent, state.destylerVersion, state.activeComponent)
   }, DEBOUNCE_DELAYS.URL_UPDATE)
 }
 

@@ -1,4 +1,5 @@
 import type { File, Framework, FrameworkTemplate, UserImportMap } from './types'
+import { DEFAULT_COMPONENT, generateComponentExampleFiles } from './component-example'
 
 import reactImportMap from './react/import-map.json'
 import reactTsconfig from './react/tsconfig.json'
@@ -98,3 +99,21 @@ export const FRAMEWORKS: Record<Framework, FrameworkTemplate> = {
 
 // Re-export types for convenience
 export type { File, Framework, FrameworkTemplate, UserImportMap }
+
+function cloneFiles(files: File[]): File[] {
+  return files.map(file => ({
+    name: file.name,
+    content: file.content,
+    active: file.active,
+  }))
+}
+
+/**
+ * Playground files for a framework + destyler component.
+ * Checkbox reuses the existing template folders; other components are generated.
+ */
+export function getComponentExampleFiles(framework: Framework, component: string): File[] {
+  if (component === DEFAULT_COMPONENT)
+    return cloneFiles(FRAMEWORKS[framework].defaultFiles)
+  return generateComponentExampleFiles(framework, component)
+}

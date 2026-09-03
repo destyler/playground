@@ -1,10 +1,13 @@
 import type { FrameworkConfig, TsConfig } from './types'
+import { getDestylerComponentTypeDeps } from '../../libs/destyler-deps'
 import { jsxLanguageConfiguration } from './react'
 
 /**
  * Solid dependencies for CDN type resolution
  */
 const solidDependencies: Record<string, string> = {
+  ...getDestylerComponentTypeDeps(),
+  '@destyler/solid': 'latest',
   'typescript': 'latest',
   'solid-js': 'latest',
   // UnoCSS types for uno.config.ts

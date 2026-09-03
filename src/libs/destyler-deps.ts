@@ -480,9 +480,37 @@ export function getAllDestylerImports(
  */
 export function getComponentDisplayNames(): { name: string, package: string }[] {
   return DESTYLER_COMPONENTS.map(component => ({
-    name: component.split('-').map(word =>
-      word.charAt(0).toUpperCase() + word.slice(1),
-    ).join(' '),
+    name: getComponentLabel(component),
     package: `@destyler/${component}`,
   }))
+}
+
+/**
+ * Default playground component (matches existing checkbox demos).
+ */
+export const DEFAULT_COMPONENT: DestylerComponent = 'checkbox'
+
+const COMPONENT_SET = new Set<string>(DESTYLER_COMPONENTS)
+
+export function isDestylerComponent(name: string): name is DestylerComponent {
+  return COMPONENT_SET.has(name)
+}
+
+/**
+ * Title-case a kebab component id (`color-picker` → `Color Picker`).
+ */
+export function getComponentLabel(component: string): string {
+  return component.split('-').map(word =>
+    word.charAt(0).toUpperCase() + word.slice(1),
+  ).join(' ')
+}
+
+/**
+ * Volar/CDN type-resolution map for every destyler component package.
+ */
+export function getDestylerComponentTypeDeps(): Record<string, string> {
+  const deps: Record<string, string> = {}
+  for (const component of DESTYLER_COMPONENTS)
+    deps[`@destyler/${component}`] = 'latest'
+  return deps
 }

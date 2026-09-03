@@ -1,4 +1,5 @@
 import type { FrameworkConfig, TsConfig } from './types'
+import { getDestylerComponentTypeDeps } from '../../libs/destyler-deps'
 
 /**
  * Svelte language configuration for Monaco
@@ -54,6 +55,8 @@ const svelteLanguageConfiguration = {
  * Svelte dependencies for CDN type resolution
  */
 const svelteDependencies: Record<string, string> = {
+  ...getDestylerComponentTypeDeps(),
+  '@destyler/svelte': 'latest',
   'typescript': 'latest',
   'svelte': '5',
   // UnoCSS types for uno.config.ts
