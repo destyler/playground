@@ -82,6 +82,8 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
 
       window.startApp = async function() {
         if (!window.SolidJS || !window.Babel || !window.babelPresetSolid) return;
+        if (window.__PLAYGROUND_STARTED__) return;
+        window.__PLAYGROUND_STARTED__ = true;
 
         let dispose = null;
         window.__FILES__ = ${serializedFiles};
@@ -137,13 +139,15 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
 
           for (const [name, content] of Object.entries(window.__FILES__)) {
              try {
+               const solidPreset = window.babelPresetSolid.default || window.babelPresetSolid;
                const result = window.Babel.transform(content, {
                  presets: [
-                   [window.babelPresetSolid, { generate: 'dom', hydratable: false }],
-                   ['typescript', { onlyRemoveTypeImports: true }],
+                   ['typescript', { isTSX: true, allExtensions: true, onlyRemoveTypeImports: true }],
+                   [solidPreset, { generate: 'dom', hydratable: false }],
                  ],
-                 plugins: [['transform-modules-commonjs']],
-                 filename: name
+                 plugins: [['syntax-jsx'], ['transform-modules-commonjs']],
+                 filename: name,
+                 sourceType: 'module',
                });
                window.__COMPILED_FILES__[name + '_code'] = result.code;
              } catch (e) {

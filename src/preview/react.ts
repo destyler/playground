@@ -79,6 +79,8 @@ export function generateReactScript(serializedFiles: string, serializedImportMap
 
       window.startReactApp = async function() {
         if (!window.React || !window.Babel) return;
+        if (window.__PLAYGROUND_STARTED__) return;
+        window.__PLAYGROUND_STARTED__ = true;
 
         let root = null;
         window.__FILES__ = ${serializedFiles};
@@ -136,8 +138,14 @@ export function generateReactScript(serializedFiles: string, serializedImportMap
           for (const [name, content] of Object.entries(window.__FILES__)) {
              try {
                const output = Babel.transform(content, {
-                 presets: ['react', 'env'],
-                 filename: name
+                 presets: [
+                   ['typescript', { isTSX: true, allExtensions: true, onlyRemoveTypeImports: true }],
+                   ['react', { runtime: 'classic' }],
+                   ['env', { modules: 'commonjs' }],
+                 ],
+                 plugins: [['transform-modules-commonjs']],
+                 filename: name,
+                 sourceType: 'module',
                }).code;
                window.__COMPILED_FILES__[name + '_code'] = output;
              } catch (e) {
