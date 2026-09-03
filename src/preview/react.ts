@@ -140,7 +140,7 @@ export function generateReactScript(serializedFiles: string, serializedImportMap
              try {
                const output = Babel.transform(content, {
                  presets: [
-                   ['typescript', { isTSX: true, allExtensions: true, onlyRemoveTypeImports: true }],
+                   ['typescript', { onlyRemoveTypeImports: true }],
                    ['react', { runtime: 'classic' }],
                  ],
                  plugins: [['transform-modules-commonjs']],

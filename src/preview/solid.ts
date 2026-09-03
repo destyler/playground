@@ -146,7 +146,7 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
                const result = window.Babel.transform(content, {
                  presets: [
                    [solidPreset, { generate: 'dom', hydratable: false }],
-                   ['typescript', { isTSX: true, allExtensions: true, onlyRemoveTypeImports: true }],
+                   ['typescript', { onlyRemoveTypeImports: true }],
                  ],
                  plugins: [['transform-modules-commonjs']],
                  filename: name.endsWith('.ts') ? name.replace(/\\.ts$/, '.tsx') : name,
