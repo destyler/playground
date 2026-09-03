@@ -21,7 +21,7 @@ type ConfigChangeCallback = (configFile: string, content: string) => void
 // Constants
 // ============================================================================
 
-const TS_CDN_VERSION = '5.6.2'
+const TS_CDN_VERSION = 'latest'
 
 type WorkerConstructor = new () => Worker
 

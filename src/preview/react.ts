@@ -136,12 +136,12 @@ export function generateReactScript(serializedFiles: string, serializedImportMap
           window.__COMPILED_FILES__ = {};
 
           for (const [name, content] of Object.entries(window.__FILES__)) {
+             if (!/\\.(tsx|ts|jsx|js)$/.test(name) || name === 'uno.config.ts') continue;
              try {
                const output = Babel.transform(content, {
                  presets: [
                    ['typescript', { isTSX: true, allExtensions: true, onlyRemoveTypeImports: true }],
                    ['react', { runtime: 'classic' }],
-                   ['env', { modules: 'commonjs' }],
                  ],
                  plugins: [['transform-modules-commonjs']],
                  filename: name,

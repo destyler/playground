@@ -138,15 +138,18 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
           window.__COMPILED_FILES__ = {};
 
           for (const [name, content] of Object.entries(window.__FILES__)) {
+             if (!/\\.(tsx|ts|jsx|js)$/.test(name) || name === 'uno.config.ts') continue;
              try {
-               const solidPreset = window.babelPresetSolid.default || window.babelPresetSolid;
+               let solidPreset = window.babelPresetSolid;
+               while (solidPreset && typeof solidPreset !== 'function' && solidPreset.default)
+                 solidPreset = solidPreset.default;
                const result = window.Babel.transform(content, {
                  presets: [
-                   ['typescript', { isTSX: true, allExtensions: true, onlyRemoveTypeImports: true }],
                    [solidPreset, { generate: 'dom', hydratable: false }],
+                   ['typescript', { isTSX: true, allExtensions: true, onlyRemoveTypeImports: true }],
                  ],
-                 plugins: [['syntax-jsx'], ['transform-modules-commonjs']],
-                 filename: name,
+                 plugins: [['transform-modules-commonjs']],
+                 filename: name.endsWith('.ts') ? name.replace(/\\.ts$/, '.tsx') : name,
                  sourceType: 'module',
                });
                window.__COMPILED_FILES__[name + '_code'] = result.code;

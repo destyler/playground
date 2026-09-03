@@ -31,6 +31,8 @@ const vueLanguageConfiguration = {
 const vueDependencies: Record<string, string> = {
   'typescript': 'latest',
   'vue': 'latest',
+  '@destyler/vue': 'latest',
+  '@destyler/checkbox': 'latest',
   '@vue/compiler-core': 'latest',
   '@vue/compiler-dom': 'latest',
   '@vue/compiler-sfc': 'latest',
@@ -57,6 +59,10 @@ const vueTsConfig: TsConfig = {
     module: 'ESNext',
     moduleResolution: 'Bundler',
     allowImportingTsExtensions: true,
+    lib: ['ESNext', 'DOM', 'DOM.Iterable'],
+    skipLibCheck: true,
+    esModuleInterop: true,
+    downlevelIteration: true,
   },
   vueCompilerOptions: {
     target: 3.5,
