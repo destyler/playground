@@ -27,6 +27,18 @@ pnpm install
 pnpm dev
 ```
 
+## Pull request previews
+
+Pull requests opened against `next` are deployed to an isolated Zeabur service. The preview is updated when new commits are pushed, its URL is kept in a single pull request comment, and the service is removed when the pull request is closed or merged.
+
+The workflow requires the following GitHub repository configuration:
+
+- Secret: `ZEABUR_TOKEN`
+- Variable: `ZEABUR_PROJECT_ID`
+- Variable: `ZEABUR_ENVIRONMENT_ID`
+
+For security, previews run only for branches in this repository. Pull requests from forks are not given access to the Zeabur token.
+
 ## Notes
 
 -   **SolidJS**: Uses `html` tagged templates for simplicity in the CDN environment.
