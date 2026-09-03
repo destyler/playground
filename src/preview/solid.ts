@@ -32,9 +32,9 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
     </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="module">
-      import babelPresetSolid from "https://esm.sh/babel-preset-solid";
+      import * as babelPresetSolidMod from "https://esm.sh/babel-preset-solid?bundle";
 
-      window.babelPresetSolid = babelPresetSolid;
+      window.babelPresetSolid = babelPresetSolidMod.default || babelPresetSolidMod;
 
       if (window.SolidJS && window.Babel) window.startApp();
     </script>
@@ -83,6 +83,15 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
       window.startApp = async function() {
         if (!window.SolidJS || !window.Babel || !window.babelPresetSolid) return;
         if (window.__PLAYGROUND_STARTED__) return;
+
+        function resolveSolidPreset() {
+          let solidPreset = window.babelPresetSolid;
+          while (solidPreset && typeof solidPreset !== 'function' && solidPreset.default)
+            solidPreset = solidPreset.default;
+          return typeof solidPreset === 'function' ? solidPreset : null;
+        }
+
+        if (!resolveSolidPreset()) return;
         window.__PLAYGROUND_STARTED__ = true;
 
         let dispose = null;
@@ -140,17 +149,23 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
           for (const [name, content] of Object.entries(window.__FILES__)) {
              if (!/\\.(tsx|ts|jsx|js)$/.test(name) || name === 'uno.config.ts') continue;
              try {
-               let solidPreset = window.babelPresetSolid;
-               while (solidPreset && typeof solidPreset !== 'function' && solidPreset.default)
-                 solidPreset = solidPreset.default;
+               const solidPreset = resolveSolidPreset();
+               if (!solidPreset) throw new Error('babel-preset-solid did not load');
+               const filename = /\\.tsx$/.test(name) ? name : name.replace(/\\.ts$/, '.tsx');
                const result = window.Babel.transform(content, {
+                 filename,
+                 sourceType: 'module',
+                 parserOpts: {
+                   sourceType: 'module',
+                   plugins: ['jsx', 'typescript'],
+                 },
                  presets: [
                    [solidPreset, { generate: 'dom', hydratable: false }],
-                   ['typescript', { onlyRemoveTypeImports: true }],
                  ],
-                 plugins: [['transform-modules-commonjs']],
-                 filename: name.endsWith('.ts') ? name.replace(/\\.ts$/, '.tsx') : name,
-                 sourceType: 'module',
+                 plugins: [
+                   ['transform-typescript', { onlyRemoveTypeImports: true }],
+                   ['transform-modules-commonjs'],
+                 ],
                });
                window.__COMPILED_FILES__[name + '_code'] = result.code;
              } catch (e) {
