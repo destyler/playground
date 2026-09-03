@@ -94,9 +94,6 @@ jobs:
         if: github.event.action != 'closed' || steps.preview-comment.outputs.has_service == 'true'
         run: |
           tool_path=.pr-preview-tooling/scripts/zeabur-preview.mjs
-          if ! rg --quiet 'ZEABUR_WORKSPACE' "$tool_path"; then
-            tool_path=scripts/zeabur-preview.mjs
-          fi
           test -f "$tool_path"
           echo "path=$tool_path" >> "$GITHUB_OUTPUT"
 
