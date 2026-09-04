@@ -408,16 +408,21 @@ export function getUsedDestylerImports(
   files: { content: string }[],
   version: string,
   framework: Framework,
+  layer: PlaygroundLayer = 'destyler',
 ): Record<string, string> {
-  const imports: Record<string, string> = {
-    ...getDestylerAdapterImport(version, framework),
-  }
+  const imports: Record<string, string> = {}
+
+  // Headless adapter is only pinned with the Destyler version selector.
+  // Destyler UI pins @destyler-ui/* instead; keep any transitive headless refs on latest.
+  if (layer === 'destyler')
+    Object.assign(imports, getDestylerAdapterImport(version, framework))
 
   for (const specifier of collectImportSpecifiers(files.map(file => file.content))) {
     if (!isDestylerSpecifier(specifier))
       continue
-    // Destyler UI versions do not share destyler headless pins.
-    const packageVersion = isDestylerUiSpecifier(specifier) ? 'latest' : version
+    const packageVersion = isDestylerUiSpecifier(specifier)
+      ? (layer === 'destyler-ui' ? version : 'latest')
+      : (layer === 'destyler' ? version : 'latest')
     imports[specifier] = getPackageCdnUrl(specifier, packageVersion)
   }
 

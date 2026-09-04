@@ -105,7 +105,7 @@ test('treats @destyler-ui specifiers as destyler CDN packages', () => {
   assert.equal(isDestylerSpecifier('@vue/runtime-dom'), false)
 })
 
-test('pins destyler-ui imports to latest even when destyler is versioned', () => {
+test('on destyler layer, pins headless versions and leaves destyler-ui on latest', () => {
   const imports = getUsedDestylerImports([
     {
       content: `
@@ -113,9 +113,24 @@ test('pins destyler-ui imports to latest even when destyler is versioned', () =>
         import * as checkbox from '@destyler/checkbox'
       `,
     },
-  ], '0.2.0', 'vue')
+  ], '0.2.0', 'vue', 'destyler')
 
   assert.equal(imports['@destyler/vue'], 'https://esm.sh/@destyler/vue@0.2.0')
   assert.equal(imports['@destyler/checkbox'], 'https://esm.sh/@destyler/checkbox@0.2.0')
   assert.equal(imports['@destyler-ui/vue'], 'https://esm.sh/@destyler-ui/vue')
+})
+
+test('on destyler-ui layer, pins UI package versions and keeps headless on latest', () => {
+  const imports = getUsedDestylerImports([
+    {
+      content: `
+        import { Checkbox } from '@destyler-ui/vue'
+        import * as checkbox from '@destyler/checkbox'
+      `,
+    },
+  ], '0.0.1-beta.17', 'vue', 'destyler-ui')
+
+  assert.equal(imports['@destyler/vue'], undefined)
+  assert.equal(imports['@destyler/checkbox'], 'https://esm.sh/@destyler/checkbox')
+  assert.equal(imports['@destyler-ui/vue'], 'https://esm.sh/@destyler-ui/vue@0.0.1-beta.17')
 })

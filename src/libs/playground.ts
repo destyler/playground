@@ -281,6 +281,8 @@ async function handleLayerChange(layer: PlaygroundLayer): Promise<void> {
     return
 
   state.activeLayer = layer
+  // Version selector follows the active layer's package family.
+  state.destylerVersion = 'latest'
   state.files = getPlaygroundFiles(state.activeFramework, layer)
   state.activeFile = state.files.find(f => f.active)?.name ?? state.files[0].name
   state.activeConfigFile = null
@@ -777,6 +779,7 @@ async function updateIframe(): Promise<void> {
       importMap,
       state.generatedUnoCSS,
       state.destylerVersion,
+      state.activeLayer,
     )
     if (!isCurrent())
       return

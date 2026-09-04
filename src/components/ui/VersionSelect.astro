@@ -77,7 +77,13 @@ const FRAMEWORK_LABEL_MAP: Record<string, string> = {
       var labelEl = document.getElementById('version-label');
       var pkgLabelEl = document.getElementById('version-pkg-label');
 
-      var frameworkLabels = {
+      var isUi = parsed.layer === 'destyler-ui';
+      var frameworkLabels = isUi ? {
+        vue: 'Destyler UI Vue',
+        react: 'Destyler UI React',
+        solid: 'Destyler UI Solid',
+        svelte: 'Destyler UI Svelte'
+      } : {
         vue: 'Destyler Vue',
         react: 'Destyler React',
         solid: 'Destyler Solid',
@@ -88,7 +94,7 @@ const FRAMEWORK_LABEL_MAP: Record<string, string> = {
         labelEl.textContent = parsed.destylerVersion;
       }
       if (pkgLabelEl && parsed.framework) {
-        pkgLabelEl.textContent = frameworkLabels[parsed.framework] || 'Destyler';
+        pkgLabelEl.textContent = frameworkLabels[parsed.framework] || (isUi ? 'Destyler UI' : 'Destyler');
       }
     }
   } catch (e) {
@@ -101,25 +107,59 @@ const FRAMEWORK_LABEL_MAP: Record<string, string> = {
 import { strFromU8, strToU8, unzlibSync } from 'fflate'
 import { state } from '../../libs/state'
 
+import type { PlaygroundLayer } from '../../templates/types'
+import { parsePlaygroundLayer } from '../../templates/destyler-ui'
+
 const EVENTS = {
   VERSION_CHANGE: 'destyler:version-change',
   FRAMEWORK_CHANGE: 'framework:change',
+  LAYER_CHANGE: 'layer:change',
   URL_FRAMEWORK_RESTORED: 'url:framework-restored',
   PLAYGROUND_STATE_READY: 'playground:state-ready',
 }
 
-const FRAMEWORK_PACKAGE_MAP: Record<string, string> = {
+const DESTYLER_PACKAGE_MAP: Record<string, string> = {
   vue: '@destyler/vue',
   react: '@destyler/react',
   solid: '@destyler/solid',
   svelte: '@destyler/svelte',
 }
 
-const FRAMEWORK_LABEL_MAP: Record<string, string> = {
+const DESTYLER_UI_PACKAGE_MAP: Record<string, string> = {
+  vue: '@destyler-ui/vue',
+  react: '@destyler-ui/react',
+  solid: '@destyler-ui/solid',
+  svelte: '@destyler-ui/svelte',
+}
+
+const DESTYLER_LABEL_MAP: Record<string, string> = {
   vue: 'Destyler Vue',
   react: 'Destyler React',
   solid: 'Destyler Solid',
   svelte: 'Destyler Svelte',
+}
+
+const DESTYLER_UI_LABEL_MAP: Record<string, string> = {
+  vue: 'Destyler UI Vue',
+  react: 'Destyler UI React',
+  solid: 'Destyler UI Solid',
+  svelte: 'Destyler UI Svelte',
+}
+
+function packageMapFor(layer: PlaygroundLayer): Record<string, string> {
+  return layer === 'destyler-ui' ? DESTYLER_UI_PACKAGE_MAP : DESTYLER_PACKAGE_MAP
+}
+
+function labelMapFor(layer: PlaygroundLayer): Record<string, string> {
+  return layer === 'destyler-ui' ? DESTYLER_UI_LABEL_MAP : DESTYLER_LABEL_MAP
+}
+
+function packageFor(framework: string, layer: PlaygroundLayer): string {
+  return packageMapFor(layer)[framework] || (layer === 'destyler-ui' ? '@destyler-ui/vue' : '@destyler/vue')
+}
+
+function labelFor(framework: string, layer: PlaygroundLayer): string {
+  return labelMapFor(layer)[framework] || (layer === 'destyler-ui' ? 'Destyler UI' : 'Destyler')
 }
 
 let expanded = false
@@ -127,11 +167,12 @@ let versions: string[] | null = null
 let selectedVersion = 'latest'
 let currentPackage = ''
 let currentFramework = ''
+let currentLayer: PlaygroundLayer = 'destyler'
 
 /**
  * Parse version directly from URL hash
  */
-function getVersionFromUrl(): { framework?: string, version?: string } {
+function getVersionFromUrl(): { framework?: string, version?: string, layer?: PlaygroundLayer } {
   try {
     const hash = window.location.hash
     if (!hash || hash === '#') return {}
@@ -148,6 +189,7 @@ function getVersionFromUrl(): { framework?: string, version?: string } {
       return {
         framework: parsed.framework,
         version: parsed.destylerVersion,
+        layer: parsed.layer ? parsePlaygroundLayer(parsed.layer) : undefined,
       }
     }
 
@@ -157,6 +199,7 @@ function getVersionFromUrl(): { framework?: string, version?: string } {
     return {
       framework: parsed.framework,
       version: parsed.destylerVersion,
+      layer: parsed.layer ? parsePlaygroundLayer(parsed.layer) : undefined,
     }
   } catch {
     return {}
@@ -171,16 +214,17 @@ function getVersionFromUrl(): { framework?: string, version?: string } {
   const urlData = getVersionFromUrl()
 
   // Update variables
+  if (urlData.layer)
+    currentLayer = urlData.layer
   if (urlData.version && urlData.version !== 'latest') {
     selectedVersion = urlData.version
   }
   if (urlData.framework) {
     currentFramework = urlData.framework
-    currentPackage = FRAMEWORK_PACKAGE_MAP[urlData.framework] || '@destyler/vue'
   } else {
     currentFramework = 'vue'
-    currentPackage = '@destyler/vue'
   }
+  currentPackage = packageFor(currentFramework, currentLayer)
 
   // Update DOM immediately if elements exist
   const labelEl = document.getElementById('version-label')
@@ -190,7 +234,7 @@ function getVersionFromUrl(): { framework?: string, version?: string } {
     labelEl.textContent = selectedVersion
   }
   if (pkgLabelEl && currentFramework) {
-    pkgLabelEl.textContent = FRAMEWORK_LABEL_MAP[currentFramework] || 'Destyler'
+    pkgLabelEl.textContent = labelFor(currentFramework, currentLayer)
   }
 
   // Also update state for other components
@@ -234,7 +278,7 @@ function updateUI() {
   }
 
   if (pkgLabel && currentFramework) {
-    pkgLabel.textContent = FRAMEWORK_LABEL_MAP[currentFramework] || 'Destyler'
+    pkgLabel.textContent = labelFor(currentFramework, currentLayer)
   }
 
   if (dropdown) {
@@ -337,13 +381,8 @@ function handleBlur() {
 }
 
 async function loadVersionsForFramework(framework: string, preserveVersion = false) {
-  const packageName = FRAMEWORK_PACKAGE_MAP[framework]
-  if (!packageName) {
-    return
-  }
-
-  currentPackage = packageName
   currentFramework = framework
+  currentPackage = packageFor(framework, currentLayer)
   versions = null
 
   // Only reset version if not preserving
@@ -364,6 +403,11 @@ async function loadVersionsForFramework(framework: string, preserveVersion = fal
   if (loading) {
     loading.style.display = 'block'
   }
+}
+
+function loadVersionsForLayer(layer: PlaygroundLayer, preserveVersion = false) {
+  currentLayer = layer
+  loadVersionsForFramework(currentFramework || 'vue', preserveVersion)
 }
 
 function initVersionSelect() {
@@ -391,9 +435,16 @@ function initVersionSelect() {
     loadVersionsForFramework(customEvent.detail.framework)
   })
 
+  // Layer changes swap Destyler <-> Destyler UI package family for the version list.
+  window.addEventListener(EVENTS.LAYER_CHANGE, function(e: Event) {
+    const customEvent = e as CustomEvent<{ layer: PlaygroundLayer }>
+    const layer = parsePlaygroundLayer(customEvent.detail.layer)
+    loadVersionsForLayer(layer)
+  })
+
   // Listen for framework restoration from URL (includes version)
   window.addEventListener(EVENTS.URL_FRAMEWORK_RESTORED, function(e: Event) {
-    const customEvent = e as CustomEvent<{ framework: string, destylerVersion?: string }>
+    const customEvent = e as CustomEvent<{ framework: string, destylerVersion?: string, layer?: PlaygroundLayer }>
 
     // Restore version from URL first, before loading framework
     if (customEvent.detail.destylerVersion) {
@@ -401,9 +452,12 @@ function initVersionSelect() {
       state.destylerVersion = customEvent.detail.destylerVersion
     }
 
+    if (customEvent.detail.layer)
+      currentLayer = parsePlaygroundLayer(customEvent.detail.layer)
+
     // Update framework info
     currentFramework = customEvent.detail.framework
-    currentPackage = FRAMEWORK_PACKAGE_MAP[customEvent.detail.framework] || '@destyler/vue'
+    currentPackage = packageFor(customEvent.detail.framework, currentLayer)
     versions = null
     expanded = false
 
@@ -413,10 +467,13 @@ function initVersionSelect() {
 
   // Listen for playground state ready event - this fires right after state is restored from URL
   window.addEventListener(EVENTS.PLAYGROUND_STATE_READY, function(e: Event) {
-    const customEvent = e as CustomEvent<{ framework: string, destylerVersion?: string }>
+    const customEvent = e as CustomEvent<{ framework: string, destylerVersion?: string, layer?: PlaygroundLayer }>
+
+    if (customEvent.detail.layer)
+      currentLayer = parsePlaygroundLayer(customEvent.detail.layer)
 
     currentFramework = customEvent.detail.framework || 'vue'
-    currentPackage = FRAMEWORK_PACKAGE_MAP[currentFramework] || '@destyler/vue'
+    currentPackage = packageFor(currentFramework, currentLayer)
 
     if (customEvent.detail.destylerVersion && customEvent.detail.destylerVersion !== 'latest') {
       selectedVersion = customEvent.detail.destylerVersion
@@ -427,17 +484,18 @@ function initVersionSelect() {
 
   // First, try to read version directly from URL (most reliable)
   const urlData = getVersionFromUrl()
+  if (urlData.layer)
+    currentLayer = urlData.layer
   if (urlData.version && urlData.version !== 'latest') {
     selectedVersion = urlData.version
     state.destylerVersion = urlData.version
   }
   if (urlData.framework) {
     currentFramework = urlData.framework
-    currentPackage = FRAMEWORK_PACKAGE_MAP[urlData.framework] || '@destyler/vue'
   } else {
     currentFramework = 'vue'
-    currentPackage = '@destyler/vue'
   }
+  currentPackage = packageFor(currentFramework, currentLayer)
 
   // Update UI immediately with URL data
   const labelEl = document.getElementById('version-label')
@@ -446,7 +504,7 @@ function initVersionSelect() {
     labelEl.textContent = selectedVersion
   }
   if (pkgLabelEl) {
-    pkgLabelEl.textContent = FRAMEWORK_LABEL_MAP[currentFramework] || 'Destyler'
+    pkgLabelEl.textContent = labelFor(currentFramework, currentLayer)
   }
 }
 

@@ -1,4 +1,4 @@
-import type { File, Framework } from '../templates'
+import type { File, Framework, PlaygroundLayer } from '../templates'
 import type { ImportMap, UserImportMap } from '../templates/types'
 import { getUsedDestylerImports } from '../libs/destyler-deps'
 
@@ -244,10 +244,11 @@ export async function generateHtml(
   userImportMap?: UserImportMap,
   unoCSS?: string,
   destylerVersion: string = 'latest',
+  layer: PlaygroundLayer = 'destyler',
 ): Promise<string> {
   const coreImports = CORE_IMPORTS[framework]
   // Only destyler packages actually imported by playground files
-  const destylerImports = getUsedDestylerImports(files, destylerVersion, framework)
+  const destylerImports = getUsedDestylerImports(files, destylerVersion, framework, layer)
   // Merge core, destyler, and user imports
   const mergedCoreImports = { ...coreImports, ...destylerImports }
   const finalImportMap = mergeImportMaps(mergedCoreImports, userImportMap)
