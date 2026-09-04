@@ -41,6 +41,11 @@ const reactDependencies: Record<string, string> = {
   'react-dom': 'latest',
   '@types/react': 'latest',
   '@types/react-dom': 'latest',
+  '@destyler-ui/vue': 'latest',
+  '@destyler-ui/react': 'latest',
+  '@destyler-ui/solid': 'latest',
+  '@destyler-ui/svelte': 'latest',
+
   // UnoCSS types for uno.config.ts
   'unocss': 'latest',
   '@unocss/core': 'latest',

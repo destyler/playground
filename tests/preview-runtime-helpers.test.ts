@@ -148,3 +148,20 @@ test('a newer preview update invalidates an older generation', () => {
   assert.equal(runtime.isCurrentUpdate(firstUpdate), false)
   assert.equal(runtime.isCurrentUpdate(secondUpdate), true)
 })
+
+test('resolves destyler-ui packages from esm.sh without destyler version pins', () => {
+  const runtime = createRuntime([])
+  const fileMap = {
+    'App.vue': "import { Checkbox } from '@destyler-ui/vue'\n",
+  }
+
+  assert.deepEqual(runtime.collectPreloadNames(fileMap), ['@destyler-ui/vue'])
+  assert.equal(
+    runtime.resolveExternalUrl('@destyler-ui/vue'),
+    'https://esm.sh/@destyler-ui/vue',
+  )
+  assert.equal(
+    runtime.resolveExternalUrl('@destyler/checkbox'),
+    'https://esm.sh/@destyler/checkbox@0.2.0',
+  )
+})
