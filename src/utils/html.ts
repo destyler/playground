@@ -57,7 +57,7 @@ const FRAMEWORK_CDNS: Readonly<Record<Framework, readonly string[]>> = {
  * Script generators for each framework (loaded only for the active mode)
  * Vue needs the import map for external module resolution
  */
-type ScriptGenerator = (serializedFiles: string, serializedImportMap?: string, destylerVersion?: string) => string
+type ScriptGenerator = (serializedFiles: string, serializedImportMap?: string, destylerVersion?: string, layer?: PlaygroundLayer) => string
 
 async function loadScriptGenerator(framework: Framework): Promise<ScriptGenerator> {
   switch (framework) {
@@ -258,7 +258,7 @@ export async function generateHtml(
   const serializedImportMap = JSON.stringify(finalImportMap).replace(/<\//g, '\\x3C/')
   const errorHandling = createErrorHandlingScript()
   const generateScript = await loadScriptGenerator(framework)
-  const scriptContent = generateScript(serializedFiles, serializedImportMap, destylerVersion)
+  const scriptContent = generateScript(serializedFiles, serializedImportMap, destylerVersion, layer)
 
   // UnoCSS styles
   const unoStyles = createUnoStyleTag(unoCSS || '')

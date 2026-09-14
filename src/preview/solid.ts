@@ -17,7 +17,7 @@ import { generateRuntimeHelpers } from './runtime-helpers'
  * @param destylerVersion - Selected destyler version (pins esm.sh URLs when not latest)
  * @returns HTML script tags for Solid.js runtime
  */
-export function generateSolidScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest') {
+export function generateSolidScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest', layer: import('../templates/types').PlaygroundLayer = 'destyler') {
   const importMapData = serializedImportMap || '{}'
 
   return `
@@ -41,7 +41,7 @@ export function generateSolidScript(serializedFiles: string, serializedImportMap
     <script>
       const importMapData = ${importMapData};
       const externalModules = importMapData.imports || {};
-      ${generateRuntimeHelpers(destylerVersion, ['solid-js', 'solid-js/web'])}
+      ${generateRuntimeHelpers(destylerVersion, ['solid-js', 'solid-js/web'], layer)}
 
       window.__EXTERNAL_MODULES__ = {};
 

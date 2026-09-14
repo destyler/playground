@@ -1,3 +1,5 @@
+import type { PlaygroundLayer } from '../templates/types'
+
 /**
  * Shared iframe runtime helpers for destyler module preload.
  * Generated as a string so it can run inside the preview iframe.
@@ -15,10 +17,12 @@ export const PRELOAD_CONCURRENCY = 8
 export function generateRuntimeHelpers(
   destylerVersion: string,
   builtinModules: readonly string[] = [],
+  layer: PlaygroundLayer = 'destyler',
 ): string {
   return `
       const DESTYLER_CDN = 'https://esm.sh';
       const DESTYLER_VERSION = ${JSON.stringify(destylerVersion)};
+      const DESTYLER_LAYER = ${JSON.stringify(layer)};
       const PRELOAD_CONCURRENCY = ${PRELOAD_CONCURRENCY};
       const BUILTIN_MODULES = new Set(${JSON.stringify(builtinModules)});
       let previewUpdateGeneration = 0;
@@ -28,9 +32,11 @@ export function generateRuntimeHelpers(
       }
 
       function destylerCdnUrl(name) {
-        const tag = isDestylerUiSpecifier(name) || !DESTYLER_VERSION || DESTYLER_VERSION === 'latest'
-          ? ''
-          : '@' + DESTYLER_VERSION;
+        const isUi = isDestylerUiSpecifier(name);
+        const pinForLayer = DESTYLER_LAYER === 'destyler-ui' ? isUi : !isUi;
+        const tag = pinForLayer && DESTYLER_VERSION && DESTYLER_VERSION !== 'latest'
+          ? '@' + DESTYLER_VERSION
+          : '';
         return DESTYLER_CDN + '/' + name + tag;
       }
 

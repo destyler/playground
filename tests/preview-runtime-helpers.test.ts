@@ -14,9 +14,13 @@ interface RuntimeHarness {
 function createRuntime(
   builtinModules: readonly string[],
   externalModules: Record<string, string> = {},
+  options: { version?: string, layer?: 'destyler' | 'destyler-ui' } = {},
 ): RuntimeHarness {
   const context = vm.createContext({ console, externalModules })
-  vm.runInContext(generateRuntimeHelpers('0.2.0', builtinModules), context)
+  vm.runInContext(
+    generateRuntimeHelpers(options.version ?? '0.2.0', builtinModules, options.layer ?? 'destyler'),
+    context,
+  )
 
   const collectPreloadNames = vm.runInContext('collectPreloadNames', context) as RuntimeHarness['collectPreloadNames']
 
@@ -149,7 +153,7 @@ test('a newer preview update invalidates an older generation', () => {
   assert.equal(runtime.isCurrentUpdate(secondUpdate), true)
 })
 
-test('resolves destyler-ui packages from esm.sh without destyler version pins', () => {
+test('on destyler layer, leaves destyler-ui unpinned and pins headless versions', () => {
   const runtime = createRuntime([])
   const fileMap = {
     'App.vue': "import { Checkbox } from '@destyler-ui/vue'\n",
@@ -163,5 +167,22 @@ test('resolves destyler-ui packages from esm.sh without destyler version pins', 
   assert.equal(
     runtime.resolveExternalUrl('@destyler/checkbox'),
     'https://esm.sh/@destyler/checkbox@0.2.0',
+  )
+})
+
+test('on destyler-ui layer, pins UI versions and leaves headless unpinned', () => {
+  const runtime = createRuntime([], {}, { version: '0.0.1-beta.17', layer: 'destyler-ui' })
+  const fileMap = {
+    'App.vue': "import { Checkbox } from '@destyler-ui/vue'\n",
+  }
+
+  assert.deepEqual(runtime.collectPreloadNames(fileMap), ['@destyler-ui/vue'])
+  assert.equal(
+    runtime.resolveExternalUrl('@destyler-ui/vue'),
+    'https://esm.sh/@destyler-ui/vue@0.0.1-beta.17',
+  )
+  assert.equal(
+    runtime.resolveExternalUrl('@destyler/checkbox'),
+    'https://esm.sh/@destyler/checkbox',
   )
 })

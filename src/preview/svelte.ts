@@ -24,7 +24,7 @@ import { generateRuntimeHelpers } from './runtime-helpers'
  * @param destylerVersion - Selected destyler version (pins esm.sh URLs when not latest)
  * @returns HTML script tags for Svelte runtime
  */
-export function generateSvelteScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest') {
+export function generateSvelteScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest', layer: import('../templates/types').PlaygroundLayer = 'destyler') {
   const importMapData = serializedImportMap || '{}'
 
   return `
@@ -47,7 +47,7 @@ export function generateSvelteScript(serializedFiles: string, serializedImportMa
         'svelte',
         'svelte/internal/client',
         'svelte/internal/disclose-version',
-      ])}
+      ], layer)}
 
       window.__EXTERNAL_MODULES__ = {};
 
