@@ -390,8 +390,14 @@ export function collectImportSpecifiers(sources: Iterable<string>): string[] {
   return [...specifiers]
 }
 
+export function isDestylerUiSpecifier(specifier: string): boolean {
+  return specifier === '@destyler-ui' || specifier.startsWith('@destyler-ui/')
+}
+
 export function isDestylerSpecifier(specifier: string): boolean {
-  return specifier === '@destyler' || specifier.startsWith('@destyler/')
+  return specifier === '@destyler'
+    || specifier.startsWith('@destyler/')
+    || isDestylerUiSpecifier(specifier)
 }
 
 /**
@@ -402,15 +408,22 @@ export function getUsedDestylerImports(
   files: { content: string }[],
   version: string,
   framework: Framework,
+  layer: PlaygroundLayer = 'destyler',
 ): Record<string, string> {
-  const imports: Record<string, string> = {
-    ...getDestylerAdapterImport(version, framework),
-  }
+  const imports: Record<string, string> = {}
+
+  // Headless adapter is only pinned with the Destyler version selector.
+  // Destyler UI pins @destyler-ui/* instead; keep any transitive headless refs on latest.
+  if (layer === 'destyler')
+    Object.assign(imports, getDestylerAdapterImport(version, framework))
 
   for (const specifier of collectImportSpecifiers(files.map(file => file.content))) {
     if (!isDestylerSpecifier(specifier))
       continue
-    imports[specifier] = getPackageCdnUrl(specifier, version)
+    const packageVersion = isDestylerUiSpecifier(specifier)
+      ? (layer === 'destyler-ui' ? version : 'latest')
+      : (layer === 'destyler' ? version : 'latest')
+    imports[specifier] = getPackageCdnUrl(specifier, packageVersion)
   }
 
   return imports

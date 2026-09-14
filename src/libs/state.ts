@@ -1,4 +1,4 @@
-import type { File, Framework } from '../templates'
+import type { File, Framework, PlaygroundLayer } from '../templates'
 import type { FrameworkOption } from '../templates/types'
 
 // ============================================================================
@@ -31,6 +31,13 @@ export const FRAMEWORK_OPTIONS: FrameworkOption[] = [
   { value: 'solid', label: 'Solid' },
 ]
 
+export const DEFAULT_LAYER: PlaygroundLayer = 'destyler'
+
+export const LAYER_OPTIONS: { value: PlaygroundLayer, label: string }[] = [
+  { value: 'destyler', label: 'Destyler' },
+  { value: 'destyler-ui', label: 'Destyler UI' },
+]
+
 // ============================================================================
 // State Interface
 // ============================================================================
@@ -41,6 +48,8 @@ export const FRAMEWORK_OPTIONS: FrameworkOption[] = [
 export interface PlaygroundState {
   /** Currently selected framework */
   activeFramework: Framework
+  /** Destyler headless primitives vs Destyler UI wrappers */
+  activeLayer: PlaygroundLayer
   /** User's files in the editor */
   files: File[]
   /** Currently active file name */
@@ -75,6 +84,7 @@ export interface PlaygroundState {
  */
 export const state: PlaygroundState = {
   activeFramework: 'vue',
+  activeLayer: DEFAULT_LAYER,
   files: [],
   activeFile: '',
   activeConfigFile: null,

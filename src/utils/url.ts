@@ -1,4 +1,4 @@
-import type { File, Framework } from '../templates/types'
+import type { File, Framework, PlaygroundLayer } from '../templates/types'
 import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 
 // ============================================================================
@@ -16,6 +16,8 @@ export interface UrlState {
   unoConfig?: string
   /** Destyler package version */
   destylerVersion?: string
+  /** Destyler vs Destyler UI layer (omit for legacy headless shares) */
+  layer?: PlaygroundLayer
 }
 
 // ============================================================================
@@ -120,6 +122,7 @@ export function updateUrlHash(
   importMap?: string,
   unoConfig?: string,
   destylerVersion?: string,
+  layer?: PlaygroundLayer,
 ): void {
   const urlState: UrlState = {
     framework,
@@ -141,6 +144,10 @@ export function updateUrlHash(
   // Save destyler version for sharing
   if (destylerVersion) {
     urlState.destylerVersion = destylerVersion
+  }
+  // Keep legacy hashes headless: only persist Destyler UI layer.
+  if (layer === 'destyler-ui') {
+    urlState.layer = layer
   }
 
   const hash = serializeState(urlState)

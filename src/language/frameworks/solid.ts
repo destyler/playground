@@ -8,6 +8,11 @@ import { jsxLanguageConfiguration } from './react'
 const solidDependencies: Record<string, string> = {
   ...TYPESCRIPT_DEPENDENCY,
   'solid-js': 'latest',
+  '@destyler-ui/vue': 'latest',
+  '@destyler-ui/react': 'latest',
+  '@destyler-ui/solid': 'latest',
+  '@destyler-ui/svelte': 'latest',
+
   // UnoCSS types for uno.config.ts
   'unocss': 'latest',
   '@unocss/core': 'latest',

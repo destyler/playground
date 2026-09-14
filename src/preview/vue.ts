@@ -17,7 +17,7 @@ import { generateRuntimeHelpers } from './runtime-helpers'
  * @param destylerVersion - Selected destyler version (pins esm.sh URLs when not latest)
  * @returns HTML script tags for Vue runtime
  */
-export function generateVueScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest') {
+export function generateVueScript(serializedFiles: string, serializedImportMap?: string, destylerVersion: string = 'latest', layer: import('../templates/types').PlaygroundLayer = 'destyler') {
   const importMapData = serializedImportMap || '{}'
 
   return `
@@ -35,7 +35,7 @@ export function generateVueScript(serializedFiles: string, serializedImportMap?:
         '@vue/runtime-dom',
         '@vue/reactivity',
         '@vue/shared',
-      ])}
+      ], layer)}
 
       function wrapVueModule(module) {
         const plainModule = {};

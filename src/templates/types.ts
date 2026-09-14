@@ -4,6 +4,11 @@
 export type Framework = 'vue' | 'react' | 'solid' | 'svelte'
 
 /**
+ * Destyler layer: headless primitives vs styled Destyler UI wrappers
+ */
+export type PlaygroundLayer = 'destyler' | 'destyler-ui'
+
+/**
  * Represents a file in the playground editor
  */
 export interface File {

@@ -1,3 +1,5 @@
+import type { PlaygroundLayer } from '../templates/types'
+
 /**
  * Shared iframe runtime helpers for destyler module preload.
  * Generated as a string so it can run inside the preview iframe.
@@ -15,16 +17,26 @@ export const PRELOAD_CONCURRENCY = 8
 export function generateRuntimeHelpers(
   destylerVersion: string,
   builtinModules: readonly string[] = [],
+  layer: PlaygroundLayer = 'destyler',
 ): string {
   return `
       const DESTYLER_CDN = 'https://esm.sh';
       const DESTYLER_VERSION = ${JSON.stringify(destylerVersion)};
+      const DESTYLER_LAYER = ${JSON.stringify(layer)};
       const PRELOAD_CONCURRENCY = ${PRELOAD_CONCURRENCY};
       const BUILTIN_MODULES = new Set(${JSON.stringify(builtinModules)});
       let previewUpdateGeneration = 0;
 
+      function isDestylerUiSpecifier(name) {
+        return name === '@destyler-ui' || name.startsWith('@destyler-ui/');
+      }
+
       function destylerCdnUrl(name) {
-        const tag = !DESTYLER_VERSION || DESTYLER_VERSION === 'latest' ? '' : '@' + DESTYLER_VERSION;
+        const isUi = isDestylerUiSpecifier(name);
+        const pinForLayer = DESTYLER_LAYER === 'destyler-ui' ? isUi : !isUi;
+        const tag = pinForLayer && DESTYLER_VERSION && DESTYLER_VERSION !== 'latest'
+          ? '@' + DESTYLER_VERSION
+          : '';
         return DESTYLER_CDN + '/' + name + tag;
       }
 
@@ -339,7 +351,7 @@ export function generateRuntimeHelpers(
 
       function resolveExternalUrl(moduleName) {
         if (externalModules[moduleName]) return externalModules[moduleName];
-        if (moduleName === '@destyler' || moduleName.startsWith('@destyler/')) {
+        if (moduleName === '@destyler' || moduleName.startsWith('@destyler/') || isDestylerUiSpecifier(moduleName)) {
           return destylerCdnUrl(moduleName);
         }
         return null;

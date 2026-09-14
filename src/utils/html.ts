@@ -1,4 +1,4 @@
-import type { File, Framework } from '../templates'
+import type { File, Framework, PlaygroundLayer } from '../templates'
 import type { ImportMap, UserImportMap } from '../templates/types'
 import { getUsedDestylerImports } from '../libs/destyler-deps'
 
@@ -57,7 +57,7 @@ const FRAMEWORK_CDNS: Readonly<Record<Framework, readonly string[]>> = {
  * Script generators for each framework (loaded only for the active mode)
  * Vue needs the import map for external module resolution
  */
-type ScriptGenerator = (serializedFiles: string, serializedImportMap?: string, destylerVersion?: string) => string
+type ScriptGenerator = (serializedFiles: string, serializedImportMap?: string, destylerVersion?: string, layer?: PlaygroundLayer) => string
 
 async function loadScriptGenerator(framework: Framework): Promise<ScriptGenerator> {
   switch (framework) {
@@ -244,10 +244,11 @@ export async function generateHtml(
   userImportMap?: UserImportMap,
   unoCSS?: string,
   destylerVersion: string = 'latest',
+  layer: PlaygroundLayer = 'destyler',
 ): Promise<string> {
   const coreImports = CORE_IMPORTS[framework]
   // Only destyler packages actually imported by playground files
-  const destylerImports = getUsedDestylerImports(files, destylerVersion, framework)
+  const destylerImports = getUsedDestylerImports(files, destylerVersion, framework, layer)
   // Merge core, destyler, and user imports
   const mergedCoreImports = { ...coreImports, ...destylerImports }
   const finalImportMap = mergeImportMaps(mergedCoreImports, userImportMap)
@@ -257,7 +258,7 @@ export async function generateHtml(
   const serializedImportMap = JSON.stringify(finalImportMap).replace(/<\//g, '\\x3C/')
   const errorHandling = createErrorHandlingScript()
   const generateScript = await loadScriptGenerator(framework)
-  const scriptContent = generateScript(serializedFiles, serializedImportMap, destylerVersion)
+  const scriptContent = generateScript(serializedFiles, serializedImportMap, destylerVersion, layer)
 
   // UnoCSS styles
   const unoStyles = createUnoStyleTag(unoCSS || '')
