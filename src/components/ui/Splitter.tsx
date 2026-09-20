@@ -40,7 +40,8 @@ export default function Splitter({ children }: SplitterProps) {
   const [state, send] = useMachine(
     splitter.machine({
       id: useId(),
-      size: getInitialSizes(),
+      // Phase 3 HARD: live `size` is presence-controlled; seed uncontrolled with defaultSize.
+      defaultSize: getInitialSizes(),
       onSizeChange: (details) => {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(details.size))
