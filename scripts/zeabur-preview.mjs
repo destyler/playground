@@ -85,7 +85,13 @@ async function createPreview(prNumber) {
     const requestedDomain = `${domainPrefix}-${prNumber}-${serviceId.slice(-8)}`
 
     console.log(`Deploying archive to service ${serviceId} ...`)
-    await deployArchive(token, environmentId, serviceId)
+    const deploymentUrl = await deployArchive(token, environmentId, serviceId)
+    if (deploymentUrl) {
+      console.log(`Deployment started: ${deploymentUrl}`)
+    }
+    else {
+      console.log('Deployment prepare returned no URL.')
+    }
 
     console.log(`Assigning preview domain ${requestedDomain} ...`)
     const result = await executeGraphQL(token, `
@@ -107,18 +113,32 @@ async function createPreview(prNumber) {
 
     const deployUrl = `https://${domain}`
     await waitForPreview(deployUrl)
-    writeOutputs({ service_id: serviceId, domain, preview_url: deployUrl, deploy_url: deployUrl })
+    writeOutputs({
+      service_id: serviceId,
+      domain,
+      preview_url: deployUrl,
+      deploy_url: deployUrl,
+      deployment_url: deploymentUrl,
+    })
     console.log(`Preview created: ${deployUrl}`)
   }
   catch (error) {
     if (serviceId) {
-      console.error(`Preview creation failed; deleting service ${serviceId} ...`)
-      try {
-        await removeService(token, serviceId)
-        console.error(`Rollback completed for service ${serviceId}.`)
+      console.error(`Preview creation failed for service ${serviceId}.`)
+      console.error(`Inspect this service in the Zeabur dashboard (project ${projectId}).`)
+      if (shouldRollbackOnFailure()) {
+        console.error(`ZEABUR_PREVIEW_ROLLBACK_ON_FAILURE=1; deleting service ${serviceId} ...`)
+        try {
+          await removeService(token, serviceId)
+          console.error(`Rollback completed for service ${serviceId}.`)
+        }
+        catch (rollbackError) {
+          console.error(`Rollback failed for service ${serviceId}: ${formatError(rollbackError)}`)
+        }
       }
-      catch (rollbackError) {
-        console.error(`Rollback failed for service ${serviceId}: ${formatError(rollbackError)}`)
+      else {
+        console.error(`Leaving service ${serviceId} in place for debugging (set ZEABUR_PREVIEW_ROLLBACK_ON_FAILURE=1 to delete).`)
+        writeOutputs({ service_id: serviceId, kept_on_failure: 'true' })
       }
     }
     throw error
@@ -135,6 +155,12 @@ async function updatePreview(serviceId) {
 
   console.log(`Updating preview service ${serviceId} ...`)
   const deploymentUrl = await deployArchive(token, environmentId, serviceId)
+  if (deploymentUrl) {
+    console.log(`Deployment started: ${deploymentUrl}`)
+  }
+  else {
+    console.log('Deployment prepare returned no URL.')
+  }
   await waitForPreview(previewUrl)
   writeOutputs({ service_id: serviceId, preview_url: previewUrl, deployment_url: deploymentUrl })
   console.log(`Preview update started for service ${serviceId}.`)
@@ -361,6 +387,11 @@ function normalizeDomainPrefix(value) {
   return normalized
 }
 
+function shouldRollbackOnFailure() {
+  const raw = process.env.ZEABUR_PREVIEW_ROLLBACK_ON_FAILURE
+  return raw === '1' || /^true$/i.test(raw || '')
+}
+
 function previewTimeout() {
   const rawValue = process.env.ZEABUR_PREVIEW_TIMEOUT_MS || '180000'
   const timeout = Number(rawValue)
@@ -409,5 +440,6 @@ Optional environment variables:
   ZEABUR_ARCHIVE_PATH           default: playground-dist.zip
   ZEABUR_PREVIEW_DOMAIN_PREFIX  default: destyler-playground-pr
   ZEABUR_PREVIEW_TIMEOUT_MS     default: 180000
+  ZEABUR_PREVIEW_ROLLBACK_ON_FAILURE  set to 1 to delete the service when create health-check fails (default: keep for debugging)
   ZEABUR_WORKSPACE              default: repository root containing this script`)
 }
